@@ -1,0 +1,110 @@
+{
+  "forms": [
+    {
+      "index": 0,
+      "id": "formLoginAgent",
+      "action": "/Login/Login",
+      "method": "POST",
+      "className": "form-login"
+    },
+    {
+      "index": 1,
+      "id": "formLoginUser",
+      "action": "/Login/Login",
+      "method": "POST",
+      "className": "form-login"
+    }
+  ],
+  "inputs": [
+    {
+      "tagName": "INPUT",
+      "id": "",
+      "name": "username",
+      "type": "text",
+      "value": "",
+      "placeholder": "Tên đăng nhập",
+      "innerText": "",
+      "className": "form-control form-control-user"
+    },
+    {
+      "tagName": "INPUT",
+      "id": "",
+      "name": "password",
+      "type": "password",
+      "value": "",
+      "placeholder": "Mật khẩu",
+      "innerText": "",
+      "className": "form-control form-control-pass"
+    },
+    {
+      "tagName": "BUTTON",
+      "id": "",
+      "name": null,
+      "type": "submit",
+      "value": "",
+      "placeholder": "",
+      "innerText": "Đăng nhập",
+      "className": "btn btn-primary btn-login"
+    },
+    {
+      "tagName": "INPUT",
+      "id": "",
+      "name": "username",
+      "type": "text",
+      "value": "",
+      "placeholder": "Số điện thoại",
+      "innerText": "",
+      "className": "form-control"
+    },
+    {
+      "tagName": "BUTTON",
+      "id": "btn-login-user",
+      "name": null,
+      "type": "submit",
+      "value": "",
+      "placeholder": "",
+      "innerText": "Đăng nhập",
+      "className": "btn btn-primary btn-login-user"
+    },
+    {
+      "tagName": "BUTTON",
+      "id": "",
+      "name": null,
+      "type": "button",
+      "value": "",
+      "placeholder": "",
+      "innerText": "×",
+      "className": "close pull-right"
+    },
+    {
+      "tagName": "INPUT",
+      "id": "user-name",
+      "name": "UserName",
+      "type": "text",
+      "value": "",
+      "placeholder": "Tên tài khoản (*)",
+      "innerText": "",
+      "className": "form-control"
+    },
+    {
+      "tagName": "INPUT",
+      "id": "email",
+      "name": "Email",
+      "type": "text",
+      "value": "",
+      "placeholder": "Email (*)",
+      "innerText": "",
+      "className": "form-control"
+    },
+    {
+      "tagName": "BUTTON",
+      "id": "btn-forgot-password",
+      "name": null,
+      "type": "button",
+      "value": "",
+      "placeholder": "",
+      "innerText": "Yêu cầu mật khẩu mới",
+      "className": "btn btn-primary"
+    }
+  ]
+}

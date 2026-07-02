@@ -1,0 +1,583 @@
+import { ExtensionFile } from '../types';
+
+export const injectCssFile: ExtensionFile = {
+  name: 'inject.css',
+  path: 'inject.css',
+  language: 'css',
+  description: 'Stylesheet định dạng cho các nút tìm kiếm nhanh, tooltip và popup xem nhanh đơn hàng.',
+  content: `/* Skyjet ERP Helper - Stylesheet */
+
+/* Tạo kiểu dáng đẹp mắt cho nút click mã đơn hàng */
+.skyjet-btn {
+  background-color: #17a2b8 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 3px 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 20px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+  font-family: inherit !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  width: 78px !important;
+  min-width: 78px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-btn:hover {
+  background-color: #138496 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18) !important;
+}
+
+.skyjet-btn:active {
+  transform: translateY(0px) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Spinner quay đều cho trạng thái Loading */
+.skyjet-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.8px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff !important;
+  animation: skyjet-spin-anim 0.55s linear infinite !important;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+@keyframes skyjet-spin-anim {
+  to { transform: rotate(360deg); }
+}
+
+/* Thiết kế lớp mờ che phủ màn hình */
+.skyjet-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(15, 23, 42, 0.6) !important; /* Lớp phủ sẫm màu cao cấp */
+  backdrop-filter: blur(2px) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 9999999999 !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* Hộp thoại thông tin lớn */
+.skyjet-modal-container {
+  background: #ffffff !important;
+  width: 95% !important;
+  max-width: 1400px !important;
+  max-height: 92vh !important;
+  border-radius: 12px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 1px solid #e2e8f0 !important;
+  font-family: inherit !important;
+}
+
+/* Hộp thoại nhỏ gọn cho đơn hàng chỉ có 1 vé */
+.skyjet-modal-container.skyjet-modal-single-ticket {
+  max-width: 980px !important;
+  width: 90% !important;
+}
+
+/* Đầu trang hộp thoại */
+.skyjet-modal-header {
+  background: #2a3f54 !important; /* Màu xanh Navy gốc của Skyjet ERP */
+  color: #ffffff !important;
+  padding: 10px 16px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 2px solid #1e2d3e !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-modal-title {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  color: #ffffff !important;
+}
+
+.skyjet-modal-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 24px !important;
+  cursor: pointer !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.skyjet-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+/* Thân của hộp thoại chứa báo cáo vế */
+.skyjet-modal-body {
+  padding: 4px !important;
+  overflow-y: auto !important;
+  flex-grow: 1 !important;
+  background: #f8fafc !important;
+  box-sizing: border-box !important;
+}
+
+/* Cuối trang chứa nút Đóng */
+.skyjet-modal-footer {
+  padding: 8px 16px !important;
+  background: #ffffff !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-open-origin-btn {
+  text-decoration: none !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  transition: all 0.15s !important;
+  border: none !important;
+  cursor: pointer !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.skyjet-close-modal-btn {
+  background-color: #64748b !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.skyjet-close-modal-btn:hover {
+  background-color: #475569 !important;
+}
+
+.skyjet-open-origin-btn:hover {
+  background-color: #0369a1 !important;
+  color: #ffffff !important;
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25) !important;
+}
+
+/* Grid chứa các thẻ Tổng hợp nhanh */
+.skyjet-summary-cards-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.skyjet-summary-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-summary-card-label {
+  font-size: 11px !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+
+.skyjet-summary-card-value {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-top: 6px !important;
+}
+
+/* Bọc ngoài bảng gốc của ERP để tạo cuộn ngang sạch đẹp */
+.skyjet-clean-table-wrapper {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  overflow-x: auto !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03) !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-clean-table-wrapper table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0 !important;
+}
+
+.skyjet-clean-table-wrapper th {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  text-align: left !important;
+}
+
+.skyjet-clean-table-wrapper td {
+  border-bottom: 1px solid #e2e8f0 !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+/* Đảm bảo tất cả các cột trong jambo_table và clean table hiển thị trên 1 dòng, ngoại trừ cột Tên khách */
+.jambo_table th,
+.jambo_table td,
+.skyjet-clean-table-wrapper th,
+.skyjet-clean-table-wrapper td {
+  white-space: nowrap !important;
+}
+
+.jambo_table th.skyjet-col-passenger,
+.jambo_table td.skyjet-col-passenger,
+.skyjet-clean-table-wrapper th.skyjet-col-passenger,
+.skyjet-clean-table-wrapper td.skyjet-col-passenger {
+  white-space: normal !important;
+  word-break: break-word !important;
+  width: 99% !important;
+  min-width: 140px !important;
+  line-height: 1.3 !important;
+}
+
+/* Layout Single Card cho đơn hàng chỉ có 1 dòng vé */
+.skyjet-single-row-container {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 16px !important;
+  margin-top: 10px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-single-card-block {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
+  box-sizing: border-box !important;
+  flex: 1 1 360px !important;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
+}
+
+.skyjet-single-card-block:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04) !important;
+  transform: translateY(-1px) !important;
+}
+
+.skyjet-single-card-header {
+  padding-bottom: 6px !important;
+  margin-bottom: 10px !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-single-card-header-blue {
+  color: #2563eb !important;
+  border-left: 3px solid #2563eb !important;
+  padding-left: 8px !important;
+}
+
+.skyjet-single-card-header-green {
+  color: #059669 !important;
+  border-left: 3px solid #059669 !important;
+  padding-left: 8px !important;
+}
+
+.skyjet-single-card-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  column-gap: 12px !important;
+  row-gap: 2px !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-grid {
+    grid-template-columns: 1fr !important;
+    row-gap: 2px !important;
+  }
+}
+
+.skyjet-single-card-field {
+  background: #f8fafc !important;
+  border: 1px solid #f1f5f9 !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+  margin-bottom: 4px !important;
+  transition: all 0.15s ease-in-out !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.01) !important;
+}
+
+.skyjet-single-card-field:hover {
+  background: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+.skyjet-single-card-field-full {
+  grid-column: span 2 !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-field-full {
+    grid-column: span 1 !important;
+  }
+}
+
+.skyjet-single-card-field-icon-bg {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  background-color: #f1f5f9 !important;
+  border-radius: 4px !important;
+  margin-right: 4px !important;
+  font-size: 10px !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.skyjet-single-card-field:hover .skyjet-single-card-field-icon-bg {
+  background-color: #e2e8f0 !important;
+}
+
+.skyjet-single-card-field-label {
+  font-size: 10px !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  margin-bottom: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  white-space: nowrap !important;
+}
+
+.skyjet-single-card-field-value {
+  font-size: 11.5px !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  word-break: break-all !important;
+  text-align: right !important;
+}
+
+.skyjet-single-card-field-value-mono {
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace !important;
+}
+
+.skyjet-single-card-total-box {
+  grid-column: span 2 !important;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%) !important;
+  border: 1px solid #a7f3d0 !important;
+  border-left: 3px solid #10b981 !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  margin-top: 8px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.05) !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.skyjet-single-card-total-box::before {
+  content: none !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-total-box {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Highlighted row and pulse animations for quick identification */
+.skyjet-highlighted-row {
+  background-color: #fef9c3 !important;
+  border-left: 5px solid #d97706 !important;
+  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1) !important;
+}
+
+.skyjet-selected-pulse {
+  width: 8px;
+  height: 8px;
+  background-color: #d97706;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+}
+
+.skyjet-selected-pulse::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #d97706;
+  animation: skyjet-ping-amber 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes skyjet-ping-amber {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.skyjet-active-badge-tag {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  font-size: 9px !important;
+  font-weight: 850 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  border: 1px solid #fde68a !important;
+  text-transform: uppercase !important;
+  display: inline-block !important;
+  vertical-align: middle;
+}
+
+/* Lớp phủ chọn phần tử khi chụp ảnh */
+.skyjet-picker-overlay {
+  position: absolute !important;
+  border: 2px solid #0ea5e9 !important;
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.3) !important;
+  border-radius: 4px !important;
+  transition: all 0.05s ease-out !important;
+}
+
+/* Common Sync Data Container classes */
+.skyjet-sync-container {
+  background: #f0f4f8 !important;
+  border: 1px solid #d1dbed !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  margin-bottom: 14px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-sync-header {
+  font-size: 9.5px !important;
+  color: #2a3f54 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  margin-bottom: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.skyjet-sync-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4.5px !important;
+  font-size: 11px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+  margin-bottom: 2px !important;
+}
+
+.skyjet-sync-badge-label {
+  color: #64748b !important;
+  font-weight: 400 !important;
+}
+
+.skyjet-sync-badge-value {
+  font-weight: 700 !important;
+  color: #12243d !important;
+}
+
+.skyjet-modal-section-title {
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  margin-top: 5px !important;
+  margin-bottom: 12px !important;
+  color: #1e293b !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.skyjet-modal-section-title-bar {
+  background: #2a3f54 !important;
+  width: 6px !important;
+  height: 14px !important;
+  display: inline-block !important;
+  border-radius: 2px !important;
+}
+`
+};

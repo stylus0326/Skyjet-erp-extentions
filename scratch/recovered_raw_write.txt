@@ -1,0 +1,47 @@
+# Kết quả khắc phục lỗi & Cập nhật tính năng mới
+
+Chúng ta đã triển khai thành công cơ chế người dùng đồng ý (User Consent), tính năng kiểm tra trạng thái đăng nhập FlightVN trước khi cho phép quét dữ liệu, và sửa lỗi ánh xạ kênh (Channel mapping) trong cửa sổ tính công nợ.
+
+---
+
+## 1. Các thay đổi đã thực hiện
+
+### A. Tích hợp Hộp thoại xin phép (Consent Overlay) trên trang web
+*   **Tệp chỉnh sửa:** [global.js](file:///d:/remix_-skyjet-erp-extension-helper/src/extension/global.js)
+*   **Mô tả:** Khi tải các trang web `erp.skyjet.vn` hoặc `flightvn.com`, tiện ích sẽ kiểm tra xem người dùng đã đồng ý cấp quyền chưa (bằng cách đọc cờ `skyjet_user_consent` từ `chrome.storage.local`).
+    *   Nếu **chưa đồng ý**, một hộp thoại Modal Overlay (chế độ mờ nền, hiển thị đẹp mắt) sẽ hiện lên giải thích rõ dữ liệu nào được tiện ích xử lý (mã đơn hàng, PNR, số vé) và mục đích (để tạo phím tắt tra cứu nhanh, kiểm tra cache Supabase). Tiện ích sẽ không thực hiện bất kỳ hành động phân tích trang web hay gửi yêu cầu API nào cho đến khi người dùng nhấn **"Tôi đồng ý"**.
+    *   Khi người dùng nhấn **"Tôi đồng ý"**, cờ đồng ý sẽ được lưu lại, hộp thoại đóng và tiện ích bắt đầu hoạt động bình thường.
+    *   Khi người dùng nhấn **"Từ chối"**, hộp thoại đóng và tiện ích sẽ duy trì ở trạng thái không hoạt động.
+*   **Đồng bộ tức thời:** Đã cấu hình bộ lắng nghe sự kiện thay đổi lưu trữ `chrome.storage.onChanged`. Khi người dùng đồng ý từ Popup, giao diện trang web sẽ lập tức tự động kích hoạt tính năng mà không cần tải lại trang.
+
+### B. Thêm Màn hình xin phép trong Extension Popup
+*   **Tệp chỉnh sửa:** [popup.html](file:///d:/remix_-skyjet-erp-extension-helper/src/extension/popup.html) & [popup.js](file:///d:/remix_-skyjet-erp-extension-helper/src/extension/popup.js)
+*   **Mô tả:** Khi nhấp chuột vào biểu tượng tiện ích (Popup):
+    *   Nếu chưa cấp quyền đồng ý, toàn bộ giao diện cấu hình và phím tắt sẽ bị ẩn. Popup chỉ hiển thị thông báo yêu cầu quyền riêng tư cùng 2 nút **"Đồng ý"** và **"Từ chối"**.
+    *   Khi bấm **"Đồng ý"**, Popup sẽ mở giao diện sử dụng bình thường.
+    *   Khi bấm **"Từ chối"**, cửa sổ Popup sẽ tự động đóng.
+
+### C. Kiểm tra trạng thái đăng nhập FlightVN trước khi bắt đầu quét dữ liệu
+*   **Tệp chỉnh sửa:** [background.js](file:///d:/remix_-skyjet-erp-extension-helper/src/extension/background.js) & [search-transaction.js](file:///d:/remix_-skyjet-erp-extension-helper/src/extension/search-transaction.js)
+*   **Mô tả:**
+    *   Khi nhấn nút **"Lấy dữ liệu"**, tiện ích sẽ gửi một tin nhắn `check_flightvn_login` về background script để thực hiện một truy vấn `GET` ẩn nhanh đến trang `flightvn.com/Booking/ImportBooking`.
+    *   Nếu background script phát hiện người dùng **chưa đăng nhập** (bị chuyển hướng đến trang `/login` hoặc trả về trang chứa tiêu đề đăng nhập):
+        *   Nút "Lấy dữ liệu" lập tức dừng lại, chuyển sang trạng thái: **`⚠️ Chưa đăng nhập FlightVN (Thử lại)`** để người dùng có thể nhấp để thử lại.
+        *   Tự động mở một tab mới dẫn đến trang đăng nhập của FlightVN để người dùng đăng nhập ngay lập tức.
+        *   **Quan trọng:** Toàn bộ cột dữ liệu cũ không bị xóa sạch và không có bất kỳ tiến trình quét PNR hay gọi API Supabase nào được kích hoạt để tránh làm gián đoạn giao diện của người dùng khi chưa có đủ quyền truy cập.
+
+### D. Sửa lỗi nhận diện kênh FLI (FlightVN) và PAR (Partner) trong cửa sổ tính công nợ
+*   **Tệp chỉnh sửa:** [CalculatorTab.tsx](file:///d:/remix_-skyjet-erp-extension-helper/src/components/CalculatorTab.tsx)
+*   **Nguyên nhân lỗi:** Hàm phân tích dữ liệu bảng `parseTableRow` trước đó chỉ tìm kiếm các chuỗi chữ viết đầy đủ (`FLIGHT`, `PARTNER`). Khi bảng ERP hiển thị các chữ cái viết tắt của cột kênh là `FLI` hoặc `PAR`, bộ phân tích không nhận diện được và đã tự động đưa về giá trị mặc định là `PARTNER` (khiến tất cả hiển thị thành `PAR`).
+*   **Cách khắc phục:** 
+    *   Bổ sung thêm điều kiện kiểm tra chuỗi viết tắt `.includes("FLI")` để trả về kênh chính xác là `FLIGHTVN`.
+    *   Bổ sung thêm điều kiện kiểm tra chuỗi viết tắt `.includes("PAR")` để trả về kênh chính xác là `PARTNER`.
+    *   Áp dụng cả cho luồng phân tích cột mặc định lẫn luồng phân tích cột dự phòng (fallback).
+
+---
+
+## 2. Kết quả kiểm thử & Build
+*   Đã chạy thành công lệnh `npm run lint` để kiểm tra lỗi cú pháp và đồng bộ hóa tiện ích.
+*   Đã chạy thành công lệnh `npm run build` để đóng gói bản phát hành mới nhất (`v26.628.5`).
+*   Bản build tiện ích chưa nén (Unpacked Extension) đã được tự động lưu trữ và cập nhật tại:
+    📂 **`C:\Users\H.I.N\Desktop\Skyjet ERP Helper`**

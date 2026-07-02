@@ -1,0 +1,72 @@
+{
+  "tables": [
+    {
+      "index": 0,
+      "headers": [
+        "#",
+        "Mã chuyến",
+        "Ngày bay",
+        "Giờ bay",
+        "Nơi đi",
+        "Nơi đến",
+        "Hạng ghế"
+      ],
+      "rows": [
+        [
+          "1",
+          "VN219",
+          "18/06/2026",
+          "19:00",
+          "HAN",
+          "SGN",
+          "B"
+        ]
+      ]
+    },
+    {
+      "index": 1,
+      "headers": [
+        "#",
+        "Họ tên",
+        "Quý danh",
+        "Ngày sinh",
+        "Trẻ em đi kèm",
+        "Hành lý chiều đi",
+        "Hành lý chiều về"
+      ],
+      "rows": [
+        [
+          "1",
+          "SAI VAN HUNG",
+          "MR",
+          "",
+          "",
+          "",
+          ""
+        ]
+      ]
+    },
+    {
+      "index": 2,
+      "headers": [
+        "#",
+        "Số vé",
+        "Họ tên hành khách",
+        "Ngày xuât vé",
+        "Tổng giá vé",
+        "Trạng thái"
+      ],
+      "rows": [
+        [
+          "1",
+          "7382321885458",
+          "SAI VAN HUNG",
+          "18/06/2026",
+          "3741000",
+          "OK"
+        ]
+      ]
+    }
+  ],
+  "url": "https://flightvn.com/Booking/ImportBooking/?airlineId=VNA"
+}

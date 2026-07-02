@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Skyjet ERP Extension Helper",
+  "description": "Chrome extension generator and testing tool for Skyjet ERP system integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

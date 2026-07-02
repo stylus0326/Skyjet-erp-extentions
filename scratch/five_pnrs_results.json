@@ -1,0 +1,105 @@
+{
+  "DPAP74": {
+    "success": true,
+    "tablesCount": 0,
+    "tables": [],
+    "ticketFace": "",
+    "ticketFaceLength": 0
+  },
+  "E700MQ": {
+    "success": true,
+    "tablesCount": 0,
+    "tables": [],
+    "ticketFace": "",
+    "ticketFaceLength": 0
+  },
+  "EQUUT5": {
+    "success": true,
+    "tablesCount": 0,
+    "tables": [],
+    "ticketFace": "",
+    "ticketFaceLength": 0
+  },
+  "FVJVBX": {
+    "success": true,
+    "tablesCount": 0,
+    "tables": [],
+    "ticketFace": "",
+    "ticketFaceLength": 0
+  },
+  "D7HIKY": {
+    "success": true,
+    "tablesCount": 3,
+    "tables": [
+      {
+        "index": 0,
+        "headers": [
+          "#",
+          "Mã chuyến",
+          "Ngày bay",
+          "Giờ bay",
+          "Nơi đi",
+          "Nơi đến",
+          "Hạng ghế"
+        ],
+        "rows": [
+          [
+            "1",
+            "VN187",
+            "26/06/2026",
+            "17:25",
+            "HAN",
+            "DAD",
+            "H"
+          ]
+        ]
+      },
+      {
+        "index": 1,
+        "headers": [
+          "#",
+          "Họ tên",
+          "Quý danh",
+          "Ngày sinh",
+          "Trẻ em đi kèm",
+          "Hành lý chiều đi",
+          "Hành lý chiều về"
+        ],
+        "rows": [
+          [
+            "1",
+            "NGUYEN THI CHINH",
+            "MRS",
+            "",
+            "",
+            "",
+            ""
+          ]
+        ]
+      },
+      {
+        "index": 2,
+        "headers": [
+          "#",
+          "Số vé",
+          "Họ tên hành khách",
+          "Ngày xuât vé",
+          "Tổng giá vé",
+          "Trạng thái"
+        ],
+        "rows": [
+          [
+            "1",
+            "7382321685406",
+            "NGUYEN THI CHINH",
+            "12/06/2026",
+            "2275000",
+            "OK"
+          ]
+        ]
+      }
+    ],
+    "ticketFace": "D7HIKY\n 1.1NGUYEN/THI CHINH MS\n 1 VN187 H 26JUN HANDAD HK 1725 1850 HPXVNF HK FREEBAGGAGE: ADT:1PC\nTKT/TIME LIMIT\n1.T-0000/12JUN26\n2.TE 7382321685406 NGUYEN/THI CHINH OK 0000/12JUN \nPHONES\n 1.84972055721\nPASSENGER EMAIL DATA EXISTS \nVN FACTS\n 1.SSR NGUYEN/THI CHINH - HANDAD - 1 PIECES\nREMARKS\n 1. ENDOR: *M*NON-END.RESTRICT MAY APPLYCTC VN B4 DEPT FOR CHNG*BKVN00490\n 2. OSI: VNHUBAPI-SKJ\nRECEIVED FROM - SJNMGO01\nCREATED DATE - 0000/01JAN01",
+    "ticketFaceLength": 442
+  }
+}

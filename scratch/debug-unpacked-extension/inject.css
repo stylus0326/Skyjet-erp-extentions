@@ -1,0 +1,880 @@
+/* Skyjet ERP Helper - Stylesheet */
+
+/* Tạo kiểu dáng đẹp mắt cho nút click mã đơn hàng */
+.skyjet-btn {
+  background-color: #17a2b8 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 3px 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease-in-out !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+  font-family: inherit !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  width: 78px !important;
+  min-width: 78px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-btn:hover {
+  background-color: #138496 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18) !important;
+}
+
+.skyjet-btn:active {
+  transform: translateY(0px) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Spinner quay đều cho trạng thái Loading */
+.skyjet-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.8px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff !important;
+  animation: skyjet-spin-anim 0.55s linear infinite !important;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+@keyframes skyjet-spin-anim {
+  to { transform: rotate(360deg); }
+}
+
+/* Thiết kế lớp mờ che phủ màn hình */
+.skyjet-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: rgba(15, 23, 42, 0.6) !important; /* Lớp phủ sẫm màu cao cấp */
+  backdrop-filter: blur(2px) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 9999999999 !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+
+/* Hộp thoại thông tin lớn */
+.skyjet-modal-container {
+  background: #ffffff !important;
+  width: 95% !important;
+  max-width: 1400px !important;
+  max-height: 92vh !important;
+  border-radius: 12px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border: 1px solid #e2e8f0 !important;
+  font-family: inherit !important;
+}
+
+/* Đầu trang hộp thoại */
+.skyjet-modal-header {
+  background: #2a3f54 !important; /* Màu xanh Navy gốc của Skyjet ERP */
+  color: #ffffff !important;
+  padding: 14px 20px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  border-bottom: 2px solid #1e2d3e !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-modal-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  color: #ffffff !important;
+}
+
+.skyjet-modal-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 26px !important;
+  cursor: pointer !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: background 0.15s, color 0.15s !important;
+}
+
+.skyjet-modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+}
+
+/* Thân của hộp thoại chứa báo cáo vế */
+.skyjet-modal-body {
+  padding: 20px !important;
+  overflow-y: auto !important;
+  flex-grow: 1 !important;
+  background: #f8fafc !important;
+  box-sizing: border-box !important;
+}
+
+/* Cuối trang chứa nút Đóng */
+.skyjet-modal-footer {
+  padding: 12px 20px !important;
+  background: #ffffff !important;
+  border-top: 1px solid #e2e8f0 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-open-origin-btn {
+  text-decoration: none !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  transition: all 0.15s !important;
+  border: none !important;
+  cursor: pointer !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.skyjet-close-modal-btn {
+  background-color: #64748b !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 32px !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.skyjet-close-modal-btn:hover {
+  background-color: #475569 !important;
+}
+
+.skyjet-open-origin-btn:hover {
+  background-color: #0369a1 !important;
+  color: #ffffff !important;
+  transform: translateY(-0.5px) !important;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25) !important;
+}
+
+/* Grid chứa các thẻ Tổng hợp nhanh */
+.skyjet-summary-cards-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+.skyjet-summary-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 14px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-summary-card-label {
+  font-size: 11px !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+}
+
+.skyjet-summary-card-value {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-top: 6px !important;
+}
+
+/* Bọc ngoài bảng gốc của ERP để tạo cuộn ngang sạch đẹp */
+.skyjet-clean-table-wrapper {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  overflow-x: auto !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03) !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-clean-table-wrapper table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0 !important;
+}
+
+.skyjet-clean-table-wrapper th {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid #cbd5e1 !important;
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  text-align: left !important;
+}
+
+.skyjet-clean-table-wrapper td {
+  border-bottom: 1px solid #e2e8f0 !important;
+  font-size: 12px !important;
+  white-space: nowrap !important;
+}
+
+/* Đảm bảo tất cả các cột trong jambo_table và clean table hiển thị trên 1 dòng, ngoại trừ cột Tên khách */
+.jambo_table th,
+.jambo_table td,
+.skyjet-clean-table-wrapper th,
+.skyjet-clean-table-wrapper td {
+  white-space: nowrap !important;
+}
+
+.jambo_table th.skyjet-col-passenger,
+.jambo_table td.skyjet-col-passenger,
+.skyjet-clean-table-wrapper th.skyjet-col-passenger,
+.skyjet-clean-table-wrapper td.skyjet-col-passenger {
+  white-space: normal !important;
+  word-break: break-word !important;
+  width: 99% !important;
+  min-width: 140px !important;
+  line-height: 1.3 !important;
+}
+
+/* Layout Single Card cho đơn hàng chỉ có 1 dòng vé */
+.skyjet-single-row-container {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+  margin-top: 10px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-single-card-block {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 14px !important;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02), 0 2px 4px -1px rgba(0,0,0,0.01) !important;
+  box-sizing: border-box !important;
+  flex: 1 1 360px !important;
+}
+
+.skyjet-single-card-header {
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 10px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+}
+
+.skyjet-single-card-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  column-gap: 18px !important;
+  row-gap: 6px !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-grid {
+    grid-template-columns: 1fr !important;
+    row-gap: 6px !important;
+  }
+}
+
+.skyjet-single-card-field {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px dashed #e2e8f0 !important;
+  border-radius: 0 !important;
+  padding: 5px 0 !important;
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-single-card-field-full {
+  grid-column: span 2 !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-field-full {
+    grid-column: span 1 !important;
+  }
+}
+
+.skyjet-single-card-field-label {
+  font-size: 11px !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  font-weight: 600 !important;
+  margin-bottom: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  white-space: nowrap !important;
+}
+
+.skyjet-single-card-field-value {
+  font-size: 12px !important;
+  color: #1e293b !important;
+  font-weight: 600 !important;
+  word-break: break-all !important;
+  text-align: right !important;
+}
+
+.skyjet-single-card-field-value-mono {
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace !important;
+}
+
+.skyjet-single-card-total-box {
+  grid-column: span 2 !important;
+  background: rgba(16, 185, 129, 0.05) !important;
+  border-left: 4px solid #10b981 !important;
+  border-top: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  margin-top: 6px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 640px) {
+  .skyjet-single-card-total-box {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Highlighted row and pulse animations for quick identification */
+.skyjet-highlighted-row {
+  background-color: #fef9c3 !important;
+  border-left: 5px solid #d97706 !important;
+  box-shadow: inset 0 0 10px rgba(245, 158, 11, 0.1) !important;
+}
+
+.skyjet-selected-pulse {
+  width: 8px;
+  height: 8px;
+  background-color: #d97706;
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+}
+
+.skyjet-selected-pulse::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #d97706;
+  animation: skyjet-ping-amber 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes skyjet-ping-amber {
+  75%, 100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.skyjet-active-badge-tag {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  font-size: 9px !important;
+  font-weight: 850 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  border: 1px solid #fde68a !important;
+  text-transform: uppercase !important;
+  display: inline-block !important;
+  vertical-align: middle;
+}
+
+/* Lớp phủ chọn phần tử khi chụp ảnh */
+.skyjet-picker-overlay {
+  position: absolute !important;
+  border: 2px solid #0ea5e9 !important;
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.3) !important;
+  border-radius: 4px !important;
+  transition: all 0.05s ease-out !important;
+}
+
+/* Common Sync Data Container classes */
+.skyjet-sync-container {
+  background: #f0f4f8 !important;
+  border: 1px solid #d1dbed !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+  margin-bottom: 14px !important;
+  box-sizing: border-box !important;
+}
+
+.skyjet-sync-header {
+  font-size: 9.5px !important;
+  color: #2a3f54 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  margin-bottom: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.skyjet-sync-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4.5px !important;
+  font-size: 11px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  color: #334155 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02) !important;
+  margin-bottom: 2px !important;
+}
+
+.skyjet-sync-badge-label {
+  color: #64748b !important;
+  font-weight: 400 !important;
+}
+
+.skyjet-sync-badge-value {
+  font-weight: 700 !important;
+  color: #12243d !important;
+}
+
+.skyjet-modal-section-title {
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  margin-top: 5px !important;
+  margin-bottom: 12px !important;
+  color: #1e293b !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.skyjet-modal-section-title-bar {
+  background: #2a3f54 !important;
+  width: 6px !important;
+  height: 14px !important;
+  display: inline-block !important;
+  border-radius: 2px !important;
+}
+
+/* ==========================================
+   SKYJET ERP PREMIUM DARK THEME (SLATE PALETTE)
+   ========================================== */
+.skyjet-dark-mode, 
+.skyjet-dark-mode body {
+  background-color: #0c0c0e !important;
+  color: #e4e4e7 !important;
+}
+
+.skyjet-dark-mode .left_col,
+.skyjet-dark-mode .nav_title,
+.skyjet-dark-mode .profile {
+  background-color: #0c0c0e !important;
+  background: #0c0c0e !important;
+}
+.skyjet-dark-mode .left_col {
+  border-right: 1px solid #27272a !important;
+}
+.skyjet-dark-mode .profile_info span {
+  color: #a1a1aa !important;
+}
+.skyjet-dark-mode .profile_info h2 {
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .nav.side-menu > li > a {
+  color: #a1a1aa !important;
+  background-color: transparent !important;
+}
+.skyjet-dark-mode .nav.side-menu > li > a:hover,
+.skyjet-dark-mode .nav.side-menu > li.active > a {
+  color: #ffffff !important;
+  background: #27272a !important;
+}
+.skyjet-dark-mode .nav-sm .nav.side-menu > li:hover > a {
+  background: #27272a !important;
+}
+.skyjet-dark-mode .sidebar-footer {
+  background: #0c0c0e !important;
+  border-top: 1px solid #27272a !important;
+}
+.skyjet-dark-mode .sidebar-footer a {
+  background: #0c0c0e !important;
+  color: #71717a !important;
+}
+.skyjet-dark-mode .sidebar-footer a:hover {
+  color: #ffffff !important;
+  background: #27272a !important;
+}
+
+/* 2. Top Navigation / Header */
+.skyjet-dark-mode .top_nav {
+  background: #0c0c0e !important;
+  border-bottom: 1px solid #27272a !important;
+}
+.skyjet-dark-mode .nav_menu {
+  background: #18181b !important;
+  border-bottom: 1px solid #27272a !important;
+}
+.skyjet-dark-mode .nav_menu a,
+.skyjet-dark-mode .top_nav .navbar-nav > li > a {
+  color: #d4d4d8 !important;
+}
+.skyjet-dark-mode .nav_menu a:hover,
+.skyjet-dark-mode .top_nav .navbar-nav > li > a:hover {
+  color: #ffffff !important;
+  background: #27272a !important;
+}
+
+/* 3. Main Content & Panels */
+.skyjet-dark-mode .right_col {
+  background-color: #0c0c0e !important;
+}
+.skyjet-dark-mode .x_panel {
+  background-color: #18181b !important;
+  border: 1px solid #27272a !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1) !important;
+}
+.skyjet-dark-mode .x_title {
+  border-bottom: 2px solid #27272a !important;
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .x_title h2 {
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .x_content {
+  color: #d4d4d8 !important;
+}
+
+/* 4. Form Controls & Inputs */
+.skyjet-dark-mode input[type="text"],
+.skyjet-dark-mode input[type="date"],
+.skyjet-dark-mode input[type="search"],
+.skyjet-dark-mode input[type="number"],
+.skyjet-dark-mode input[type="password"],
+.skyjet-dark-mode select,
+.skyjet-dark-mode textarea,
+.skyjet-dark-mode .form-control {
+  background-color: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  color: #f4f4f5 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+}
+.skyjet-dark-mode input[type="text"]:focus,
+.skyjet-dark-mode select:focus,
+.skyjet-dark-mode textarea:focus,
+.skyjet-dark-mode .form-control:focus {
+  border-color: #f4f4f5 !important;
+  box-shadow: 0 0 0 2px rgba(244, 244, 245, 0.2) !important;
+  outline: none !important;
+}
+.skyjet-dark-mode input::placeholder {
+  color: #71717a !important;
+}
+
+/* 5. Data Tables */
+.skyjet-dark-mode .table,
+.skyjet-dark-mode table.table-bordered {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+}
+.skyjet-dark-mode table.table-bordered th,
+.skyjet-dark-mode table.table-bordered td {
+  border: 1px solid #27272a !important;
+  color: #d4d4d8 !important;
+  vertical-align: middle !important;
+}
+.skyjet-dark-mode .table thead th,
+.skyjet-dark-mode table thead th {
+  background-color: #27272a !important;
+  color: #f4f4f5 !important;
+  border-bottom: 2px solid #3f3f46 !important;
+  font-weight: 700 !important;
+}
+.skyjet-dark-mode .table-striped tbody tr:nth-of-type(odd) {
+  background-color: #18181b !important;
+}
+.skyjet-dark-mode .table-striped tbody tr:nth-of-type(even) {
+  background-color: #0c0c0e !important;
+}
+.skyjet-dark-mode .table-hover tbody tr:hover,
+.skyjet-dark-mode table tbody tr:hover {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+/* 6. Typography & Text Colors */
+.skyjet-dark-mode h1, 
+.skyjet-dark-mode h2, 
+.skyjet-dark-mode h3, 
+.skyjet-dark-mode h4, 
+.skyjet-dark-mode h5, 
+.skyjet-dark-mode h6,
+.skyjet-dark-mode strong,
+.skyjet-dark-mode label {
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .text-muted,
+.skyjet-dark-mode p.text-muted,
+.skyjet-dark-mode span.text-muted {
+  color: #71717a !important;
+}
+
+/* 7. Dropdowns & Modals */
+.skyjet-dark-mode .dropdown-menu {
+  background-color: #18181b !important;
+  border: 1px solid #3f3f46 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+.skyjet-dark-mode .dropdown-menu > li > a {
+  color: #d4d4d8 !important;
+}
+.skyjet-dark-mode .dropdown-menu > li > a:hover {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+
+/* 8. Skyjet Custom Buttons & Modals inside dark mode */
+.skyjet-dark-mode .skyjet-btn {
+  background-color: rgb(23, 162, 184) !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+}
+.skyjet-dark-mode .skyjet-btn:hover {
+  background-color: rgb(19, 132, 150) !important;
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .skyjet-modal-container {
+  background: #18181b !important;
+  border-color: #3f3f46 !important;
+}
+.skyjet-dark-mode .skyjet-modal-header {
+  background: #0c0c0e !important;
+  border-bottom: 2px solid #27272a !important;
+}
+.skyjet-dark-mode .skyjet-modal-body {
+  background: #0c0c0e !important;
+}
+.skyjet-dark-mode .skyjet-modal-footer {
+  background: #18181b !important;
+  border-top: 1px solid #27272a !important;
+}
+
+/* Dark Mode overrides for Common Sync Data Container and general table cell text readability */
+.skyjet-dark-mode .skyjet-sync-container {
+  background: #18181b !important;
+  border-color: #27272a !important;
+}
+.skyjet-dark-mode .skyjet-sync-header {
+  color: #a1a1aa !important;
+}
+.skyjet-dark-mode .skyjet-sync-badge {
+  background: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+.skyjet-dark-mode .skyjet-sync-badge-label {
+  color: #a1a1aa !important;
+}
+.skyjet-dark-mode .skyjet-sync-badge-value {
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .skyjet-modal-section-title {
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .skyjet-modal-section-title-bar {
+  background: #38bdf8 !important; /* Sky blue accent color for dark mode */
+}
+
+/* Highly readable table text colors in dark mode */
+.skyjet-dark-mode .jambo_table tr:not(.skyjet-highlighted-row) td,
+.skyjet-dark-mode .jambo_table tr:not(.skyjet-highlighted-row) td span,
+.skyjet-dark-mode .jambo_table tr:not(.skyjet-highlighted-row) td strong,
+.skyjet-dark-mode .jambo_table tr:not(.skyjet-highlighted-row) td div {
+  color: #d4d4d8 !important;
+}
+.skyjet-dark-mode .jambo_table tr:not(.skyjet-highlighted-row) td a {
+  color: #38bdf8 !important;
+}
+
+/* Highlighted ticket row styling in dark mode - elegant amber accent */
+.skyjet-dark-mode .skyjet-highlighted-row {
+  background-color: #3f2d12 !important; /* Warm dark amber background */
+  border-left: 5px solid #d97706 !important;
+}
+.skyjet-dark-mode .jambo_table tr.skyjet-highlighted-row td,
+.skyjet-dark-mode .jambo_table tr.skyjet-highlighted-row td span,
+.skyjet-dark-mode .jambo_table tr.skyjet-highlighted-row td strong,
+.skyjet-dark-mode .jambo_table tr.skyjet-highlighted-row td div {
+  color: #fef3c7 !important; /* Light warm yellow/amber text */
+}
+.skyjet-dark-mode .jambo_table tr.skyjet-highlighted-row td a {
+  color: #fde68a !important;
+}
+
+/* Card blocks and summary blocks overrides in dark mode */
+.skyjet-dark-mode .skyjet-summary-card {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+}
+.skyjet-dark-mode .skyjet-summary-card-value {
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .skyjet-clean-table-wrapper {
+  background: #18181b !important;
+  border-color: #27272a !important;
+}
+.skyjet-dark-mode .skyjet-single-card-block {
+  background: #18181b !important;
+  border-color: #27272a !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2) !important;
+}
+.skyjet-dark-mode .skyjet-single-card-header {
+  border-bottom-color: #27272a !important;
+  color: #60a5fa !important; /* Brighter blue for dark mode */
+}
+.skyjet-dark-mode .skyjet-single-card-block:nth-child(2) .skyjet-single-card-header {
+  color: #34d399 !important; /* Brighter emerald green for dark mode finance header */
+}
+.skyjet-dark-mode .skyjet-single-card-field {
+  border-bottom-color: #27272a !important;
+}
+.skyjet-dark-mode .skyjet-single-card-field-value {
+  color: #e4e4e7 !important;
+}
+.skyjet-dark-mode .skyjet-single-card-total-box {
+  background: rgba(16, 185, 129, 0.08) !important;
+  border-color: #27272a !important;
+}
+.skyjet-dark-mode .skyjet-single-card-total-box .skyjet-single-card-field-label {
+  color: #34d399 !important;
+}
+
+/* 9. Select2 & Native Select Options Dark Mode styling */
+.skyjet-dark-mode select,
+.skyjet-dark-mode select option,
+.skyjet-dark-mode .select2-container,
+.skyjet-dark-mode .select2-container *,
+.skyjet-dark-mode .select2-dropdown,
+.skyjet-dark-mode .select2-dropdown *,
+.skyjet-dark-mode .select2-results,
+.skyjet-dark-mode .select2-results *,
+.skyjet-dark-mode .select2-drop,
+.skyjet-dark-mode .select2-drop * {
+  background-color: transparent;
+  color: #d4d4d8;
+}
+.skyjet-dark-mode select,
+.skyjet-dark-mode .select2-container--default .select2-selection--single,
+.skyjet-dark-mode .select2-selection,
+.skyjet-dark-mode .select2-choice,
+.skyjet-dark-mode .select2-choices,
+.skyjet-dark-mode .select2-search input,
+.skyjet-dark-mode .select2-search__field {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .select2-dropdown,
+.skyjet-dark-mode .select2-drop,
+.skyjet-dark-mode .select2-results,
+.skyjet-dark-mode .select2-results__options {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .select2-results__option,
+.skyjet-dark-mode .select2-result-label,
+.skyjet-dark-mode .select2-results .select2-result {
+  background-color: transparent !important;
+  color: #d4d4d8 !important;
+}
+.skyjet-dark-mode .select2-results__option--highlighted,
+.skyjet-dark-mode .select2-results__option[aria-selected=true],
+.skyjet-dark-mode .select2-results__option:hover,
+.skyjet-dark-mode .select2-results .select2-highlighted,
+.skyjet-dark-mode .select2-results .select2-result:hover {
+  background-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .select2-container--default .select2-results__option[aria-selected=true],
+.skyjet-dark-mode .select2-results .select2-selected {
+  background-color: #27272a !important;
+  color: #ffffff !important;
+}
+.skyjet-dark-mode .select2-selection__rendered,
+.skyjet-dark-mode .select2-choice span,
+.skyjet-dark-mode .select2-chosen {
+  color: #f4f4f5 !important;
+}
+.skyjet-dark-mode .select2-container--default .select2-selection--single .select2-selection__arrow b {
+  border-color: #d4d4d8 transparent transparent transparent !important;
+}
+.skyjet-dark-mode .select2-container--default.select2-container--open .select2-selection--single .select2-selection__arrow b {
+  border-color: transparent transparent #d4d4d8 transparent !important;
+}
+

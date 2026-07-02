@@ -1,0 +1,173 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Redefining Zinc color scale to be a premium Light Slate/Zinc palette */
+  --color-zinc-50: #09090b;       /* Dark text */
+  --color-zinc-100: #18181b;      /* Dark text primary */
+  --color-zinc-200: #27272a;      /* Dark text secondary */
+  --color-zinc-300: #3f3f46;      /* Dark text tertiary */
+  --color-zinc-400: #52525b;      /* Muted text */
+  --color-zinc-500: #71717a;      /* Slate-grey placeholder/text */
+  --color-zinc-600: #cbd5e1;      /* Light border */
+  --color-zinc-700: #cbd5e1;      /* Light border */
+  --color-zinc-800: #cbd5e1;      /* Borders / dividers */
+  --color-zinc-850: #e2e8f0;      /* Table cell border */
+  --color-zinc-900: #ffffff;      /* White for card backgrounds */
+  --color-zinc-950: #f8fafc;      /* Soft light-grey body canvas */
+}
+
+/* Custom Global Selection Highlight */
+::selection {
+  background-color: #fde047 !important;
+  color: #0f172a !important;
+}
+
+/* Force light scrollbar styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Ensure global base styling matches modern light mode */
+html, body {
+  background-color: #f8fafc !important;
+  color: #18181b !important;
+  font-size: 16px !important;
+}
+
+/* Target root and main container explicitly */
+#app-root {
+  background-color: #f8fafc !important;
+  color: #18181b !important;
+}
+
+/* Main active tab panel: premium floating card */
+#active-tab-panel {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -2px rgba(0, 0, 0, 0.03) !important;
+}
+
+/* Tab Navigation Area */
+#tab-navigation-container {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Active tab button */
+#tab-navigation-container button.bg-zinc-100 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.08) !important;
+}
+
+#tab-navigation-container button.bg-zinc-100 svg {
+  color: #0f172a !important;
+}
+
+#tab-navigation-container button.bg-zinc-100 div div {
+  color: #64748b !important; /* Sublabel */
+}
+
+/* Inactive tab buttons */
+#tab-navigation-container button:not(.bg-zinc-100) {
+  color: #475569 !important;
+}
+
+#tab-navigation-container button:not(.bg-zinc-100):hover {
+  background-color: rgba(148, 163, 184, 0.1) !important;
+  color: #0f172a !important;
+}
+
+/* Inputs and Forms styling */
+input[type="text"], input[type="number"], select, textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Form inputs inside calculator parameter block */
+.bg-zinc-950\/60 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Sub-widgets / stat blocks styling */
+.bg-zinc-900\/15 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Modals & Dialogs */
+.bg-zinc-950\/80 {
+  background-color: rgba(15, 23, 42, 0.4) !important;
+}
+
+/* Headings with text-white on modals */
+h3.text-white {
+  color: #0f172a !important;
+}
+
+/* Action button style override */
+button.bg-zinc-100 {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+button.bg-zinc-100:hover {
+  background-color: #1e293b !important;
+}
+
+button.bg-zinc-100 svg {
+  color: #ffffff !important;
+}
+
+/* Table rows details hover and borders */
+.hover\:bg-zinc-900\/20:hover {
+  background-color: #f8fafc !important;
+}
+
+.border-zinc-900\/50 {
+  border-color: #cbd5e1 !important;
+}
+
+/* Secondary white/gray outline buttons */
+.bg-zinc-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+.bg-zinc-900\/80 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.hover\:bg-zinc-800:hover {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+.hover\:text-white:hover {
+  color: #0f172a !important;
+}
