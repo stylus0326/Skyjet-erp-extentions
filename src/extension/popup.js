@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (tabs[0] && tabs[0].url) {
             const url = tabs[0].url;
-            if (url.includes('erp.skyjet.vn') || url.includes('flightvn.com')) {
+             if (url.includes('erp.skyjet.vn') || url.includes('agent.skyjet.vn') || url.includes('flightvn.com')) {
               chrome.tabs.reload(tabs[0].id);
             }
           }
@@ -459,29 +459,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let isSearchTransactionPage = false;
+    let isAgentHost = false;
     try {
       if (activeTab.url) {
         const urlObj = new URL(activeTab.url);
-        isSearchTransactionPage = urlObj.pathname.toLowerCase() === '/agentarea/agent/searchtransaction';
+        const path = urlObj.pathname.toLowerCase();
+        isSearchTransactionPage = path === '/agentarea/agent/searchtransaction' || path === '/transaction/searchtransaction';
+        isAgentHost = urlObj.hostname.toLowerCase() === 'agent.skyjet.vn';
       }
     } catch (e) {}
 
     const searchTransContainer = document.getElementById('search-transaction-container');
     const splitDescCheckbox = document.getElementById('split-desc-checkbox');
-
+    const autoFetchWrapper = document.getElementById('auto-fetch-wrapper');
+    const autoFetchCheckbox = document.getElementById('auto-fetch-checkbox');
 
     if (isSearchTransactionPage) {
       if (searchTransContainer) searchTransContainer.style.display = 'block';
-      chrome.storage.local.get(['skyjet_split_desc'], (res) => {
+      if (autoFetchWrapper) autoFetchWrapper.style.display = isAgentHost ? 'flex' : 'none';
+      
+      chrome.storage.local.get(['skyjet_split_desc', 'autoFetchSupabase'], (res) => {
         if (splitDescCheckbox) {
           splitDescCheckbox.checked = !!res.skyjet_split_desc;
         }
+        if (autoFetchCheckbox) {
+          autoFetchCheckbox.checked = !!res.autoFetchSupabase;
+        }
       });
+      
       if (splitDescCheckbox) {
         splitDescCheckbox.onchange = () => {
           chrome.storage.local.set({ skyjet_split_desc: splitDescCheckbox.checked }, () => {
             chrome.tabs.sendMessage(activeTab.id, { action: 'update_split_desc' });
           });
+        };
+      }
+      
+      if (autoFetchCheckbox) {
+        autoFetchCheckbox.onchange = () => {
+          chrome.storage.local.set({ autoFetchSupabase: autoFetchCheckbox.checked });
         };
       }
     } else {

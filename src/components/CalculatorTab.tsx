@@ -1100,9 +1100,9 @@ function parseHtmlDebtData(htmlString: string) {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlString, 'text/html');
 
-  let agencyName = "PHÒNG VÉ AN SKY";
-  let agencyCode = "SJASNK";
-  let agencyEmail = "thuyhoa2403@gmail.com";
+  let agencyName = "";
+  let agencyCode = "";
+  let agencyEmail = "";
   let creditLimit = 0;
 
   // Try to find credit limit from text
@@ -1142,8 +1142,8 @@ function parseHtmlDebtData(htmlString: string) {
     }
   }
 
-  // 2. Fallbacks (e.g. from dropdown selects or input fields) if still default or "Chưa có"
-  if (agencyCode === "SJASNK" || agencyName === "PHÒNG VÉ AN SKY") {
+  // 2. Fallbacks (e.g. from dropdown selects or input fields) if still empty or "Chưa có"
+  if (!agencyCode || !agencyName || agencyCode === "Chưa có" || agencyName === "Chưa có") {
     // Extract selected agency from dropdown selects
     const selects = Array.from(doc.querySelectorAll('select[id*="agent" i], select[name*="agent" i], select[id*="customer" i], select[name*="customer" i]'));
     selects.forEach(select => {
@@ -3583,7 +3583,7 @@ export function CalculatorTab() {
                         {inspectorResult.appliedCampaigns && inspectorResult.appliedCampaigns.map((camp, idx) => {
                           const isPenalized = camp.multiplier !== undefined && camp.multiplier < 1.0;
                           return (
-                            <div key={`camp-${idx}`} className="bg-zinc-950/40 p-2.5 rounded border border-zinc-800/30 text-[11px] space-y-1.5">
+                            <div key={`camp-${idx}`} className="bg-zinc-950/40 p-2.5 rounded border border-zinc-800/30 text-[11px] space-y-1.5 flex flex-col h-full">
                               <div className="flex justify-between items-start">
                                 <div className="space-y-0.5">
                                   <span className="font-bold text-zinc-200 block">Chính sách {idx + 1}: {camp.campaignName}</span>
@@ -3656,11 +3656,11 @@ export function CalculatorTab() {
                                 }) as string[];
 
                                 return (
-                                  <div className="mt-2.5 overflow-x-auto rounded border border-zinc-800 bg-zinc-950/40 text-[9px] shadow-inner">
+                                  <div className="mt-2.5 overflow-x-auto rounded border border-zinc-800 bg-zinc-950/40 text-[9px] shadow-inner flex-grow flex flex-col">
                                     <div className="bg-zinc-900/50 border-b border-zinc-850 px-2 py-1 text-[8px] font-bold text-zinc-500 uppercase tracking-wider">
                                       Bản đồ ma trận chiết khấu chiến dịch:
                                     </div>
-                                    <table className="w-full border-collapse text-center table-fixed">
+                                    <table className="w-full border-collapse text-center table-fixed flex-grow h-full">
                                       <thead>
                                         <tr className="bg-zinc-950 border-b border-zinc-800 text-[8px] font-semibold text-zinc-400 uppercase">
                                           <th className="py-1 px-1 border-r border-zinc-850 text-center w-24">Hạng</th>
@@ -3735,7 +3735,7 @@ export function CalculatorTab() {
                         })}
 
                         {inspectorResult.skippedSegments && inspectorResult.skippedSegments.map((seg, idx) => (
-                          <div key={`seg-${idx}`} className="bg-rose-50 border border-rose-200 rounded-lg p-3 space-y-2.5 text-zinc-900 shadow-sm">
+                          <div key={`seg-${idx}`} className="bg-rose-50 border border-rose-200 rounded-lg p-3 space-y-2.5 text-zinc-900 shadow-sm flex flex-col h-full">
                             <div className="flex justify-between items-center text-[11px]">
                               <div className="flex items-center space-x-1.5">
                                 <span className="px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-rose-100 text-rose-800 border border-rose-200">
@@ -3758,6 +3758,59 @@ export function CalculatorTab() {
                                 </div>
                               )}
                             </div>
+
+                            {/* Bảng đối chiếu quy định chiến dịch */}
+                            {(() => {
+                              const campRules = details.filter(d => d.campaign_id === seg.campaignId);
+                              if (campRules.length === 0) return null;
+                              return (
+                                <div className="mt-2.5 border border-rose-200 rounded-lg overflow-hidden bg-white shadow-xs flex-grow flex flex-col">
+                                  <div className="bg-rose-100/50 px-2.5 py-1.5 text-[9px] font-bold text-rose-950 uppercase border-b border-rose-200 text-left">
+                                    Bảng quy định chiết khấu của chiến dịch:
+                                  </div>
+                                  <table className="w-full text-[10px] text-left border-collapse flex-grow h-full">
+                                    <thead>
+                                      <tr className="bg-rose-50 border-b border-rose-100 text-rose-800 font-bold">
+                                        <th className="px-2.5 py-1.5">Vùng bay (Nhãn)</th>
+                                        <th className="px-2.5 py-1.5 text-center">Hạng đặt chỗ</th>
+                                        <th className="px-2.5 py-1.5 text-right">Chiết khấu</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-rose-100/60 text-zinc-700">
+                                      {campRules.map((rule) => {
+                                        let discountStr = '';
+                                        if (rule.discount_percentage > 0) {
+                                          discountStr = `${rule.discount_percentage}% ${rule.discount_base === 'FARE' ? 'Fare' : 'Bán'}`;
+                                        } else if (rule.amount) {
+                                          discountStr = `${rule.amount.toLocaleString()}đ`;
+                                        } else {
+                                          discountStr = '0đ';
+                                        }
+                                        
+                                        const classesStr = rule.booking_class && rule.booking_class.length > 0
+                                          ? rule.booking_class.map(c => c.toUpperCase()).join(', ')
+                                          : 'Tất cả';
+                                        
+                                        const groupsStr = rule.groups_tag && rule.groups_tag.length > 0
+                                          ? rule.groups_tag.map(t => t.toUpperCase()).join(' ↔ ')
+                                          : 'Tất cả';
+                                        
+                                        const isClassMatch = rule.booking_class && rule.booking_class.some(c => c.toUpperCase() === seg.segmentClass.toUpperCase());
+                                        const rowBg = isClassMatch ? 'bg-amber-50/75 font-semibold' : '';
+
+                                        return (
+                                          <tr key={rule.id} className={`${rowBg} hover:bg-rose-50/40 transition-colors`}>
+                                            <td className="px-2.5 py-2 text-zinc-800">{groupsStr}</td>
+                                            <td className="px-2.5 py-2 text-center font-mono font-bold text-rose-700">{classesStr}</td>
+                                            <td className="px-2.5 py-2 text-right font-mono font-bold text-emerald-600">{discountStr}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              );
+                            })()}
                           </div>
                         ))}
                       </div>

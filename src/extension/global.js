@@ -61,9 +61,9 @@ function initSkyjetHelper() {
   if (window.skyjetHelperInitialized) return;
   window.skyjetHelperInitialized = true;
 
-  if (window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('flightvn.com')) {
+  if (window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('agent.skyjet.vn') || window.location.hostname.includes('flightvn.com')) {
     const isHomepage = window.location.pathname === '/' || window.location.pathname === '';
-    const cameFromLogin = document.referrer && document.referrer.includes('/LoginArea/Login/Index');
+    const cameFromLogin = document.referrer && (document.referrer.includes('/LoginArea/Login/Index') || document.referrer.includes('/Account/Login'));
     
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       if ((isHomepage && cameFromLogin) || safeGetSession('skyjet_session_config_refreshed') !== 'true') {
@@ -1108,7 +1108,7 @@ function moveColumnNextTo(table, isTargetCol, isAnchorCol) {
 }
 
 function checkConsentAndInit() {
-  const isMatchHost = window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('flightvn.com');
+  const isMatchHost = window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('agent.skyjet.vn') || window.location.hostname.includes('flightvn.com');
   if (!isMatchHost) return;
 
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {

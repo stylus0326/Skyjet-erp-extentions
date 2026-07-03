@@ -1,7 +1,7 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "26.702.1",
+  "version": "26.703.11",
   "type": "module",
   "scripts": {
     "dev": "node scratch/sync-extension.cjs && vite --port=3000 --host=0.0.0.0",

@@ -704,7 +704,47 @@ function handleSearchTransactionCheck() {
   if (columnsMissing && !isBusy && table.skyjetResultsMap && table.skyjetVnaResultsMap) {
     console.log('[Skyjet Helper] Detected missing columns with existing cache. Re-rendering dynamically.');
     renderTransactionColumns(table, table.skyjetResultsMap, table.skyjetVnaResultsMap);
-    return;
+  }
+
+  // Tự động lấy dữ liệu từ Supabase nếu bật cấu hình
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['autoFetchSupabase'], (res) => {
+      const isAgentHost = window.location.hostname.includes('agent.skyjet.vn');
+      if (isAgentHost && res.autoFetchSupabase) {
+        const btn = document.getElementById('skyjet-check-btn') || checkBtn;
+        if (btn && !btn.disabled) {
+          // Lấy dữ liệu lần đầu tiên khi tải bảng
+          setTimeout(() => {
+            if (btn && !btn.disabled) {
+              console.log('[Skyjet Helper] Tự động lấy dữ liệu lần đầu từ Supabase...');
+              performTransactionChecking(btn, table, true);
+            }
+          }, 600);
+
+          // Cài đặt MutationObserver trên tbody của bảng
+          if (!window.skyjetAutoFetchObserverActive) {
+            window.skyjetAutoFetchObserverActive = true;
+            let debounceTimeout = null;
+            const observer = new MutationObserver((mutations) => {
+              if (window.skyjetIsAutoFetching) return;
+              if (debounceTimeout) clearTimeout(debounceTimeout);
+              debounceTimeout = setTimeout(() => {
+                const refreshedTable = document.getElementById('tableContent');
+                const refreshedBtn = document.getElementById('skyjet-check-btn');
+                if (refreshedTable && refreshedBtn && !refreshedBtn.disabled) {
+                  console.log('[Skyjet Helper] Tự động lấy dữ liệu sau khi lọc công nợ...');
+                  performTransactionChecking(refreshedBtn, refreshedTable, true);
+                }
+              }, 800);
+            });
+            const tbody = table.querySelector('tbody');
+            if (tbody) {
+              observer.observe(tbody, { childList: true });
+            }
+          }
+        }
+      }
+    });
   }
 }
 
@@ -737,6 +777,7 @@ function getCurrentAgencyCode() {
 
 async function performTransactionChecking(btn, table, isAutoLoad = false) {
   if (btn.disabled) return;
+  window.skyjetIsAutoFetching = true;
 
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
     const originalBtnText = btn.innerHTML.includes('Chưa đăng nhập FlightVN') ? '<i class="fa fa-check-circle"></i> Lấy dữ liệu' : btn.innerHTML;
@@ -1013,6 +1054,8 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
   const vnaRequests = [];
 
 
+    const isAgentHost = window.location.hostname.includes('agent.skyjet.vn');
+
     // Manual checking: only query ERP for ticket numbers not present in Supabase cache
     orderCodes.forEach(code => {
       const tickets = pnrToTickets.get(code);
@@ -1033,7 +1076,21 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
             return;
           }
         }
-        orderCodesToScan.push(code);
+        if (isAgentHost) {
+          resultsMap.set(code, {
+            ticketList: [{
+              ticketNum: '-',
+              ticketClass: '',
+              ticketType: 'X',
+              passengerName: '',
+              channel: 'PARTNER'
+            }],
+            classes: [],
+            ticketTypes: ['X']
+          });
+        } else {
+          orderCodesToScan.push(code);
+        }
         return;
       }
 
@@ -1059,15 +1116,33 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
               passengerName: '',
               channel: cached.channel
             });
+          } else if (isAgentHost) {
+            if (!ticketTypes.includes('X')) ticketTypes.push('X');
+            ticketList.push({
+              ticketNum: tNum,
+              ticketClass: (cached && cached.ticket_class) || '',
+              ticketType: 'X',
+              passengerName: '',
+              channel: (cached && cached.channel) || 'PARTNER'
+            });
           } else {
             allCached = false;
           }
+        } else if (isAgentHost) {
+          if (!ticketTypes.includes('X')) ticketTypes.push('X');
+          ticketList.push({
+            ticketNum: tNum,
+            ticketClass: '',
+            ticketType: 'X',
+            passengerName: '',
+            channel: 'PARTNER'
+          });
         } else {
           allCached = false;
         }
       }
 
-      if (allCached) {
+      if (allCached || isAgentHost) {
         resultsMap.set(code, { ticketList, classes, ticketTypes });
       } else {
         if (cachedPnrsMap.has(code)) {
@@ -1423,8 +1498,9 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
       updateProgress();
     };
 
+    const isAgentHost = window.location.hostname.includes('agent.skyjet.vn');
     await Promise.all([
-      ...orderCodesToScan.map(async (code) => {
+      ...(isAgentHost ? [] : orderCodesToScan.map(async (code) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           try {
@@ -1561,7 +1637,7 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
           ticketCompletedCount++;
           updateProgress();
         }
-      }),
+      })),
       fetchVnaSequentially()
     ]);
 
@@ -1577,6 +1653,7 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
   } catch (error) {
     console.error('[Skyjet Helper] Lỗi trong tiến trình kiểm tra vé:', error);
   } finally {
+    window.skyjetIsAutoFetching = false;
     if (hasLoginError) {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Chưa đăng nhập FlightVN (Thử lại)';
@@ -1886,7 +1963,7 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
       return;
     }
 
-    const resultObj = resultsMap.get(cleanCode);
+    const resultObj = resultsMap.get(cleanCode) || { ticketList: [], classes: [], ticketTypes: [] };
     let classesList = [];
     let ticketTypesList = [];
     let rowTicketNum = '';
@@ -2543,7 +2620,9 @@ function decorateRows(table) {
       }
       
       // Chỉ gắn nút khi có mã đơn hợp lệ (độ dài >= 3 ký tự, không trống, chưa được chuyển đổi)
-      if (orderCode && orderCode !== '0' && orderCode.length >= 3 && !td.querySelector('.skyjet-btn')) {
+      // KHÔNG gắn nút trên trang agent.skyjet.vn theo yêu cầu
+      const isAgentPage = window.location.hostname.includes('agent.skyjet.vn');
+      if (orderCode && orderCode !== '0' && orderCode.length >= 3 && !td.querySelector('.skyjet-btn') && !isAgentPage) {
         td.innerHTML = ''; // Xoá nội dung text thô ban đầu
         
         const btn = document.createElement('button');

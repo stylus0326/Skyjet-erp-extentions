@@ -2,6 +2,8 @@
 
 - **Left Navigation Auto-Collapse Pattern**: When introducing new links in the extension that navigate to internal ERP pages (especially in new tabs), always append the query parameter `skyjet_hide_nav=true` to ensure the left navigation sidebar collapses automatically on load.
 
+- **No Mock/Sample Data Generation Constraint**: When reading, testing, or processing page data in the extension (such as booking, agency sales, or search transaction modules), never auto-generate or use hardcoded placeholder mock/sample data (e.g. testing names, default agency/PNRs, fallback fake logs) unless explicitly requested by the user. Always parse and work only with the actual real-time parsed data from the active pages or database, preventing checks from displaying false validation or incorrect matching logic.
+
 
 # Forgewright — Production Grade AI Pipeline
 

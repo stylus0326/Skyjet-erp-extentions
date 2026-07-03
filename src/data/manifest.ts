@@ -8,7 +8,7 @@ export const manifestFile: ExtensionFile = {
   content: `{
   "manifest_version": 3,
   "name": "Skyjet ERP Helper",
-  "version": "26.702.1",
+  "version": "26.703.11",
   "description": "Biến Mã đơn hàng trong bảng công nợ Skyjet ERP thành nút tìm kiếm nhanh chạy ngầm.",
   "permissions": [
     "activeTab",
@@ -20,6 +20,7 @@ export const manifestFile: ExtensionFile = {
   "host_permissions": [
     "<all_urls>",
     "*://erp.skyjet.vn/*",
+    "*://agent.skyjet.vn/*",
     "*://flightvn.com/*",
     "*://*.flightvn.com/*",
     "https://*.supabase.co/*"
@@ -35,7 +36,9 @@ export const manifestFile: ExtensionFile = {
     {
       "matches": [
         "https://erp.skyjet.vn/*",
-        "http://erp.skyjet.vn/*"
+        "http://erp.skyjet.vn/*",
+        "https://agent.skyjet.vn/*",
+        "http://agent.skyjet.vn/*"
       ],
       "js": [
         "global.js",
@@ -74,7 +77,8 @@ export const manifestFile: ExtensionFile = {
         "assets/*"
       ],
       "matches": [
-        "*://erp.skyjet.vn/*"
+        "*://erp.skyjet.vn/*",
+        "*://agent.skyjet.vn/*"
       ]
     }
   ]
