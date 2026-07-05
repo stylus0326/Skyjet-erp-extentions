@@ -478,19 +478,13 @@ export const popupJsFile: ExtensionFile = {
 
     const searchTransContainer = document.getElementById('search-transaction-container');
     const splitDescCheckbox = document.getElementById('split-desc-checkbox');
-    const autoFetchWrapper = document.getElementById('auto-fetch-wrapper');
-    const autoFetchCheckbox = document.getElementById('auto-fetch-checkbox');
 
     if (isSearchTransactionPage) {
       if (searchTransContainer) searchTransContainer.style.display = 'block';
-      if (autoFetchWrapper) autoFetchWrapper.style.display = isAgentHost ? 'flex' : 'none';
       
-      chrome.storage.local.get(['skyjet_split_desc', 'autoFetchSupabase'], (res) => {
+      chrome.storage.local.get(['skyjet_split_desc'], (res) => {
         if (splitDescCheckbox) {
           splitDescCheckbox.checked = !!res.skyjet_split_desc;
-        }
-        if (autoFetchCheckbox) {
-          autoFetchCheckbox.checked = !!res.autoFetchSupabase;
         }
       });
       
@@ -499,12 +493,6 @@ export const popupJsFile: ExtensionFile = {
           chrome.storage.local.set({ skyjet_split_desc: splitDescCheckbox.checked }, () => {
             chrome.tabs.sendMessage(activeTab.id, { action: 'update_split_desc' });
           });
-        };
-      }
-      
-      if (autoFetchCheckbox) {
-        autoFetchCheckbox.onchange = () => {
-          chrome.storage.local.set({ autoFetchSupabase: autoFetchCheckbox.checked });
         };
       }
     } else {

@@ -64,6 +64,137 @@ function convertToYmd(dateStr) {
   return clean;
 }
 
+function isInvoiceRequestTimeframeSatisfied(hachToanStr) {
+  if (!hachToanStr) return false;
+  const datePart = hachToanStr.trim().split(/\s+/)[0];
+  const parts = datePart.split('/');
+  if (parts.length !== 3) return false;
+  
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const year = parseInt(parts[2], 10);
+  
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return false;
+  
+  let deadlineYear = year;
+  let deadlineMonth = month;
+  let deadlineDay = 16;
+  
+  if (day >= 1 && day <= 15) {
+    deadlineDay = 16;
+    deadlineMonth = month;
+    deadlineYear = year;
+  } else if (day >= 16 && day <= 27) {
+    deadlineDay = 28;
+    deadlineMonth = month;
+    deadlineYear = year;
+  } else if (day >= 28 && day <= 31) {
+    deadlineDay = 4;
+    deadlineMonth = month + 1;
+    if (deadlineMonth > 12) {
+      deadlineMonth = 1;
+      deadlineYear = year + 1;
+    }
+  } else {
+    return false;
+  }
+  
+  const deadlineDate = new Date(deadlineYear, deadlineMonth - 1, deadlineDay, 17, 0, 0, 0);
+  const now = new Date();
+  
+  return now < deadlineDate;
+}
+
+function handleInvoiceRequestCreatePage() {
+  if (!window.location.pathname.toLowerCase().includes('/invoicerequest/create')) return;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const ticketVal = urlParams.get('skyjetTicket');
+  const fromDateVal = urlParams.get('skyjetFromDate');
+  
+  if (!ticketVal) return;
+
+  console.log('[Skyjet Helper] Init handleInvoiceRequestCreatePage with ticket:', ticketVal, 'fromDate:', fromDateVal);
+
+  let attempts = 0;
+  const maxAttempts = 100; // 10 seconds
+  const intervalId = setInterval(() => {
+    attempts++;
+    
+    // Helper to find input by preceding label or parent form-group
+    function findInputByLabel(labelTextKeywords) {
+      const labels = Array.from(document.querySelectorAll('label'));
+      for (const label of labels) {
+        const text = label.innerText.trim().toLowerCase();
+        if (labelTextKeywords.some(keyword => text.includes(keyword))) {
+          if (label.htmlFor) {
+            const input = document.getElementById(label.htmlFor);
+            if (input) return input;
+          }
+          const parent = label.parentElement;
+          if (parent) {
+            const input = parent.querySelector('input');
+            if (input) return input;
+          }
+        }
+      }
+      return null;
+    }
+
+    const ticketInput = findInputByLabel(['số vé', 'pnr', 'số hóa đơn', 'mã đơn', 'đơn hàng']) || 
+                        document.querySelector('input[name*="pnr" i], input[name*="ticket" i], input[id*="ticket" i], input[id*="pnr" i], input[name*="code" i], input[id*="code" i]');
+                        
+    const fromDateInput = findInputByLabel(['từ ngày', 'tu ngay', 'ngày đi', 'ngay di']) || 
+                          document.querySelector('input[name*="from" i], input[id*="from" i], input[name*="tu" i], input[id*="tu" i], input[class*="date" i]');
+
+    if (ticketInput) {
+      clearInterval(intervalId);
+      console.log('[Skyjet Helper] Found ticketInput in content script, filling value.');
+
+      // Fill ticket/order code
+      ticketInput.value = ticketVal;
+      ticketInput.dispatchEvent(new Event('input', { bubbles: true }));
+      ticketInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      // Inject script to handle Flatpickr date population in the page context
+      // Handled by main-world.js script (running in MAIN world)
+
+      // Auto click search button after 3200ms to ensure all date overrides are finished
+      setTimeout(() => {
+        let searchBtn = Array.from(document.querySelectorAll('button, input[type="submit"], input[type="button"], a')).find(el => {
+          const txt = (el.innerText || el.textContent || el.value || '').trim().toLowerCase();
+          return txt.includes('tìm kiếm') || txt.includes('tim kiem') || txt.includes('search') || txt === 'tìm';
+        });
+
+        if (searchBtn) {
+          console.log('[Skyjet Helper] Auto clicking search button:', searchBtn);
+          searchBtn.click();
+        } else {
+          console.warn('[Skyjet Helper] Could not find search button.');
+        }
+      }, 1000);
+
+      // Clean up URL parameters
+      const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + 
+        window.location.search
+          .replace(/[?&]skyjetTicket=[^&]+/, '')
+          .replace(/[?&]skyjetFromDate=[^&]+/, '')
+          .replace(/^&/, '?')
+          .replace(/[?]$/, '');
+      try {
+        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+      } catch (e) {
+        console.warn('[Skyjet Helper] Failed to clean URL params:', e);
+      }
+    } else {
+      if (attempts >= maxAttempts) {
+        clearInterval(intervalId);
+        console.error('[Skyjet Helper] Timeout waiting for form elements to load.');
+      }
+    }
+  }, 100);
+}
+
 function handleSearchTransactionQuery() {
   const urlParams = new URLSearchParams(window.location.search);
   const agentId = urlParams.get('skyjetAgentId');
@@ -347,6 +478,13 @@ function handleSearchTransactionCheck() {
   if (orderCodeIndex === -1) orderCodeIndex = 5;
 
   let checkBtn = document.getElementById('skyjet-check-btn');
+  if (checkBtn) {
+    checkBtn.style.borderRadius = '20px';
+  }
+  let calcHeaderBtn = document.getElementById('skyjet-calc-header-btn');
+  if (calcHeaderBtn) {
+    calcHeaderBtn.style.borderRadius = '20px';
+  }
   if (!checkBtn) {
     // Tìm phần tử chứa tiêu đề "Danh sách công nợ hiện tại"
     let titleEl = null;
@@ -380,25 +518,64 @@ function handleSearchTransactionCheck() {
       checkBtn.style.verticalAlign = 'middle';
       checkBtn.style.padding = '4px 10px';
       checkBtn.style.fontSize = '12px';
+      checkBtn.style.borderRadius = '20px';
 
       checkBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         await performTransactionChecking(checkBtn, table);
       });
 
+      calcHeaderBtn = document.createElement('button');
+      calcHeaderBtn.type = 'button';
+      calcHeaderBtn.id = 'skyjet-calc-header-btn';
+      calcHeaderBtn.className = 'btn btn-success';
+      calcHeaderBtn.innerHTML = '<i class="fa fa-calculator" style="margin-right: 6px;"></i> Tính công nợ';
+      calcHeaderBtn.style.marginLeft = '8px';
+      calcHeaderBtn.style.fontWeight = 'bold';
+      calcHeaderBtn.style.backgroundColor = '#28a745';
+      calcHeaderBtn.style.borderColor = '#28a745';
+      calcHeaderBtn.style.color = '#ffffff';
+      calcHeaderBtn.style.verticalAlign = 'middle';
+      calcHeaderBtn.style.padding = '4px 10px';
+      calcHeaderBtn.style.fontSize = '12px';
+      calcHeaderBtn.style.borderRadius = '20px';
+      calcHeaderBtn.style.cursor = 'pointer';
+
+      calcHeaderBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openCalculatorModal();
+      });
+
       const calcPopupBtn = document.createElement('button');
       calcPopupBtn.type = 'button';
       calcPopupBtn.id = 'skyjet-calc-popup-btn';
       calcPopupBtn.className = 'btn btn-success';
-      calcPopupBtn.innerHTML = '<i class="fa fa-calculator"></i> Kiểm tra';
-      calcPopupBtn.style.marginLeft = '8px';
+      calcPopupBtn.innerHTML = '<i class="fa fa-calculator" style="margin-right: 6px;"></i> Tính công nợ';
+      calcPopupBtn.style.position = 'fixed';
+      calcPopupBtn.style.bottom = '24px';
+      calcPopupBtn.style.right = '24px';
+      calcPopupBtn.style.zIndex = '99999';
       calcPopupBtn.style.fontWeight = 'bold';
       calcPopupBtn.style.backgroundColor = '#28a745';
-      calcPopupBtn.style.borderColor = '#28a745';
+      calcPopupBtn.style.borderColor = '#218838';
       calcPopupBtn.style.color = '#ffffff';
-      calcPopupBtn.style.verticalAlign = 'middle';
-      calcPopupBtn.style.padding = '4px 10px';
-      calcPopupBtn.style.fontSize = '12px';
+      calcPopupBtn.style.padding = '12px 20px';
+      calcPopupBtn.style.fontSize = '13px';
+      calcPopupBtn.style.borderRadius = '50px';
+      calcPopupBtn.style.boxShadow = '0 8px 24px rgba(40, 167, 69, 0.4)';
+      calcPopupBtn.style.cursor = 'pointer';
+      calcPopupBtn.style.display = 'none'; // Initially hidden, appears after data is fetched
+      calcPopupBtn.style.alignItems = 'center';
+      calcPopupBtn.style.transition = 'all 0.2s ease-in-out';
+
+      calcPopupBtn.addEventListener('mouseenter', () => {
+        calcPopupBtn.style.transform = 'scale(1.05)';
+        calcPopupBtn.style.boxShadow = '0 10px 28px rgba(40, 167, 69, 0.5)';
+      });
+      calcPopupBtn.addEventListener('mouseleave', () => {
+        calcPopupBtn.style.transform = 'scale(1)';
+        calcPopupBtn.style.boxShadow = '0 8px 24px rgba(40, 167, 69, 0.4)';
+      });
 
       const openCalculatorModal = () => {
         let container = document.getElementById('skyjet-calc-modal-container');
@@ -419,15 +596,16 @@ function handleSearchTransactionCheck() {
           
           const content = document.createElement('div');
           content.style.position = 'relative';
-          content.style.width = '92%';
-          content.style.height = '90%';
+          content.style.width = '100%';
+          content.style.maxWidth = '100%';
+          content.style.height = '100%';
           content.style.backgroundColor = '#1e1e2e';
-          content.style.borderRadius = '12px';
+          content.style.borderRadius = '0px';
           content.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.5)';
           content.style.display = 'flex';
           content.style.flexDirection = 'column';
           content.style.overflow = 'hidden';
-          content.style.border = '1px solid #313244';
+          content.style.border = 'none';
           
           // Header
           const header = document.createElement('div');
@@ -456,6 +634,64 @@ function handleSearchTransactionCheck() {
           titleContainer.appendChild(agencyInfo);
 
           header.appendChild(titleContainer);
+
+          // Action Buttons Container in Header
+          const actionContainer = document.createElement('div');
+          actionContainer.id = 'skyjet-header-action-container';
+          actionContainer.style.display = 'flex';
+          actionContainer.style.alignItems = 'center';
+          actionContainer.style.gap = '8px';
+          actionContainer.style.marginRight = '16px';
+
+          const captureBtn = document.createElement('button');
+          captureBtn.innerHTML = `
+            <svg style="width: 14px; height: 14px; display: block;" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+          `;
+          captureBtn.title = "Chụp cuộn toàn bộ bảng tính công nợ";
+
+          captureBtn.style.backgroundColor = '#0ea5e9';
+          captureBtn.style.color = '#ffffff';
+          captureBtn.style.border = '1px solid rgba(14, 165, 233, 0.2)';
+          captureBtn.style.borderRadius = '50%';
+          captureBtn.style.width = '30px';
+          captureBtn.style.height = '30px';
+          captureBtn.style.padding = '0';
+          captureBtn.style.cursor = 'pointer';
+          captureBtn.style.display = 'flex';
+          captureBtn.style.alignItems = 'center';
+          captureBtn.style.justifyContent = 'center';
+          captureBtn.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
+          captureBtn.style.transition = 'all 0.15s ease-in-out';
+
+          captureBtn.addEventListener('mouseenter', () => {
+            captureBtn.style.backgroundColor = '#0284c7';
+            captureBtn.style.transform = 'translateY(-1px)';
+            captureBtn.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.25)';
+          });
+          captureBtn.addEventListener('mouseleave', () => {
+            captureBtn.style.backgroundColor = '#0ea5e9';
+            captureBtn.style.transform = 'translateY(0)';
+            captureBtn.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.15)';
+          });
+          captureBtn.addEventListener('mousedown', () => {
+            captureBtn.style.transform = 'translateY(0) scale(0.9)';
+          });
+          captureBtn.addEventListener('mouseup', () => {
+            captureBtn.style.transform = 'translateY(-1px) scale(1)';
+          });
+
+          captureBtn.addEventListener('click', () => {
+            const iframe = container.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({ action: 'skyjet_trigger_scroll_capture' }, '*');
+            }
+          });
+
+          actionContainer.appendChild(captureBtn);
+          header.appendChild(actionContainer);
           
           const closeBtn = document.createElement('button');
           closeBtn.innerHTML = '&times;';
@@ -471,12 +707,6 @@ function handleSearchTransactionCheck() {
             document.body.style.overflow = '';
             const iframe = content.querySelector('iframe');
             if (iframe) iframe.src = 'about:blank';
-            
-            // Show the floating button again
-            const floatBtn = document.getElementById('skyjet-floating-calc-btn');
-            if (floatBtn) {
-              floatBtn.style.display = 'flex';
-            }
           });
           header.appendChild(closeBtn);
           content.appendChild(header);
@@ -499,58 +729,12 @@ function handleSearchTransactionCheck() {
         if (iframe) {
           iframe.src = chrome.runtime.getURL('index.html?popup=true');
         }
-
-        // Hide the floating button when the modal is open
-        const floatBtn = document.getElementById('skyjet-floating-calc-btn');
-        if (floatBtn) {
-          floatBtn.style.display = 'none';
-        }
       };
-
+      
       calcPopupBtn.addEventListener('click', (e) => {
         e.preventDefault();
         openCalculatorModal();
       });
-
-      // Append floating calculation button at the bottom-right of the webpage
-      let floatingBtn = document.getElementById('skyjet-floating-calc-btn');
-      if (!floatingBtn) {
-        floatingBtn = document.createElement('button');
-        floatingBtn.id = 'skyjet-floating-calc-btn';
-        floatingBtn.type = 'button';
-        floatingBtn.innerHTML = '<i class="fa fa-calculator" style="font-size: 16px; margin-right: 6px;"></i><span style="font-weight: bold; font-size: 11px;">Tính công nợ</span>';
-        floatingBtn.style.position = 'fixed';
-        floatingBtn.style.bottom = '20px';
-        floatingBtn.style.right = '20px';
-        floatingBtn.style.zIndex = '99999';
-        floatingBtn.style.display = 'flex';
-        floatingBtn.style.alignItems = 'center';
-        floatingBtn.style.justifyContent = 'center';
-        floatingBtn.style.padding = '8px 14px';
-        floatingBtn.style.backgroundColor = '#28a745';
-        floatingBtn.style.color = '#ffffff';
-        floatingBtn.style.border = 'none';
-        floatingBtn.style.borderRadius = '50px';
-        floatingBtn.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.35)';
-        floatingBtn.style.cursor = 'pointer';
-        floatingBtn.style.transition = 'transform 0.2s, background-color 0.2s';
-        
-        floatingBtn.addEventListener('mouseenter', () => {
-          floatingBtn.style.transform = 'scale(1.05)';
-          floatingBtn.style.backgroundColor = '#218838';
-        });
-        floatingBtn.addEventListener('mouseleave', () => {
-          floatingBtn.style.transform = 'scale(1)';
-          floatingBtn.style.backgroundColor = '#28a745';
-        });
-        
-        floatingBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          openCalculatorModal();
-        });
-        
-        document.body.appendChild(floatingBtn);
-      }
 
       // Global window message event listener to communicate with local extension iframe
       if (!window.skyjetCalcMessageListenerAdded) {
@@ -563,18 +747,35 @@ function handleSearchTransactionCheck() {
               if (iframe && iframe.contentWindow) {
                 const xContentEl = document.querySelector('.content_container') || document.querySelector('.x_panel') || document.querySelector('.x_content');
                 const xContentHtml = xContentEl ? xContentEl.outerHTML : '';
-                iframe.contentWindow.postMessage({ action: 'import_x_content', html: xContentHtml }, '*');
+                const rect = iframe.getBoundingClientRect();
+                iframe.contentWindow.postMessage({ 
+                  action: 'import_x_content', 
+                  html: xContentHtml,
+                  iframeRect: {
+                    x: rect.left,
+                    y: rect.top,
+                    width: rect.width,
+                    height: rect.height
+                  }
+                }, '*');
               }
             }
           } else if (event.data && event.data.action === 'skyjet_update_agency_info') {
             const container = document.getElementById('skyjet-header-agency-info');
             if (container) {
-              const { agencyName, agencyCode, agencyEmail } = event.data;
+              const { agencyName, agencyCode, agencyEmail, policyName } = event.data;
               const nameSpan = agencyName ? `<span style="color: #f9e2af; font-weight: 800; text-transform: uppercase;">Đại lý: ${agencyName}</span>` : '';
+              const policySpan = policyName && policyName !== 'Không có' ? `<span style="color: #a6e3a1; font-weight: bold;">Chính sách: ${policyName}</span>` : '';
               const codeSpan = agencyCode && agencyCode !== 'Chưa có' ? `<span style="color: #f38ba8; font-weight: bold; background-color: rgba(243, 139, 168, 0.15); border: 1px solid rgba(243, 139, 168, 0.3); padding: 1px 6px; border-radius: 4px; font-size: 11px;">Mã KH: ${agencyCode}</span>` : '';
               const emailSpan = agencyEmail && agencyEmail !== 'Chưa có' ? `<span style="color: #cdd6f4; font-family: monospace; font-size: 11px;">Email: ${agencyEmail}</span>` : '';
               
-              container.innerHTML = [nameSpan, codeSpan, emailSpan].filter(Boolean).join(' <span style="color: #45475a;">|</span> ');
+              container.innerHTML = [nameSpan, policySpan, codeSpan, emailSpan].filter(Boolean).join(' <span style="color: #45475a;">|</span> ');
+            }
+          } else if (event.data && event.data.action === 'skyjet_show_preview') {
+            if (typeof showImagePreviewModal === 'function') {
+              showImagePreviewModal(event.data.dataUrl);
+            } else {
+              console.error('showImagePreviewModal is not defined in scope');
             }
           }
         });
@@ -584,13 +785,15 @@ function handleSearchTransactionCheck() {
       if (titleEl.tagName === 'STRONG' || titleEl.tagName === 'SPAN') {
         if (titleEl.parentNode) {
           titleEl.parentNode.insertBefore(checkBtn, titleEl.nextSibling);
-          titleEl.parentNode.insertBefore(calcPopupBtn, checkBtn.nextSibling);
+          titleEl.parentNode.insertBefore(calcHeaderBtn, checkBtn.nextSibling);
         }
       } else {
         titleEl.style.display = 'inline-block';
         titleEl.appendChild(checkBtn);
-        titleEl.appendChild(calcPopupBtn);
+        titleEl.appendChild(calcHeaderBtn);
       }
+      // Chèn nút nổi Tính công nợ vào body
+      document.body.appendChild(calcPopupBtn);
     }
   }
 
@@ -625,8 +828,9 @@ function handleSearchTransactionCheck() {
   if (columnsMissing && !isBusy && table.skyjetResultsMap && table.skyjetVnaResultsMap) {
     console.log('[Skyjet Helper] Detected missing columns with existing cache. Re-rendering dynamically.');
     renderTransactionColumns(table, table.skyjetResultsMap, table.skyjetVnaResultsMap);
-    return;
   }
+
+
 }
 
 function getTicketNumFromRow(row, headers) {
@@ -641,8 +845,53 @@ function getTicketNumFromRow(row, headers) {
   return cells[soVeColIdx]?.innerText?.trim() || '';
 }
 
+function getCurrentAgencyCode() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlAgentId = urlParams.get('skyjetAgentId');
+  if (urlAgentId) return urlAgentId;
+
+  const selectEl = document.querySelector('select[id*="agent" i], select[id*="Agent" i], select[id*="customer" i], select[name*="agent" i], select[name*="Agent" i], #AgentId, #agent-id, #AgentCode, #agent_id');
+  if (selectEl && selectEl.value) {
+    const val = selectEl.value.trim();
+    if (val && val !== '0' && val !== '-1') {
+      return val;
+    }
+  }
+  return 'SJNTRH';
+}
+
 async function performTransactionChecking(btn, table, isAutoLoad = false) {
   if (btn.disabled) return;
+  window.skyjetIsAutoFetching = true;
+
+  const isAgentHost = window.location.hostname.includes('agent.skyjet.vn');
+
+  if (!isAgentHost && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+    const originalBtnText = btn.innerHTML.includes('Chưa đăng nhập FlightVN') ? '<i class="fa fa-check-circle"></i> Lấy dữ liệu' : btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="skyjet-spinner" style="width:12px; height:12px; border-width:1.5px; border-top-color:#ffffff; display:inline-block; margin-right:4px;"></span> Đang kiểm tra đăng nhập FlightVN...';
+    try {
+      const loginCheck = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'check_flightvn_login' }, (res) => {
+          resolve(res || { success: false, error: 'Không phản hồi' });
+        });
+      });
+      if (!loginCheck || !loginCheck.success) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Chưa đăng nhập FlightVN (Thử lại)';
+        if (!isAutoLoad) {
+          chrome.runtime.sendMessage({ action: 'open_flightvn_login' });
+        }
+        return;
+      }
+    } catch (loginErr) {
+      console.error('[Skyjet Helper] Lỗi kiểm tra đăng nhập FlightVN:', loginErr);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnText;
+    }
+  }
+
   let hasLoginError = false;
   const headers = Array.from(table.querySelectorAll('thead th'));
   let orderCodeIndex = -1;
@@ -680,18 +929,14 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
 
   const rows = Array.from(table.querySelectorAll('tbody tr'));
   
-  // Làm mới kết quả kiểm tra cũ trong cột Hạng vé
-  let oldTargetClassHeaderIndex = -1;
-  for (let i = 0; i < headers.length; i++) {
-    if (headers[i].innerText.trim() === 'Hạng vé') {
-      oldTargetClassHeaderIndex = i;
-      break;
-    }
-  }
+  // Lưu lại giá trị Hạng vé ban đầu trước khi bị xoá sạch để phục vụ kiểm tra
+  const originalTicketClasses = new Map(); // rowIndex -> text
+  const oldTargetClassHeaderIndex = findHeaderIndex(headers, ['hạng vé', 'hang ve'], ['hạng', 'hang']);
   if (oldTargetClassHeaderIndex !== -1) {
-    rows.forEach(row => {
+    rows.forEach((row, rIdx) => {
       const cells = row.querySelectorAll('td');
       if (cells[oldTargetClassHeaderIndex]) {
+        originalTicketClasses.set(rIdx, cells[oldTargetClassHeaderIndex].innerText || '');
         cells[oldTargetClassHeaderIndex].innerHTML = '';
       }
     });
@@ -717,8 +962,10 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
     });
   }
 
+  const dateColIdx = findHeaderIndex(headers, ['ngày hạch toán', 'ngay hach toan', 'ngày chứng từ', 'ngay chung tu', 'ngày ct', 'ngay ct'], ['ngày', 'ngay']);
   const orderCodes = [];
   const pnrCarrierMap = new Map();
+  const pnrDateMap = new Map();
   rows.forEach(row => {
     if (row.style.display === 'none' || row.offsetHeight === 0) {
       return;
@@ -748,6 +995,15 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
         else if (airlineId === 'VIETRAVEL') carrier = 'VU';
         if (cleanCode && carrier) {
           pnrCarrierMap.set(cleanCode, carrier);
+        }
+
+        let rawDate = '';
+        if (dateColIdx !== -1 && cells[dateColIdx]) {
+          rawDate = cells[dateColIdx].innerText.trim();
+        }
+        const dateVal = convertToYmd(rawDate);
+        if (cleanCode && dateVal) {
+          pnrDateMap.set(cleanCode, dateVal);
         }
       }
     }
@@ -905,7 +1161,11 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
             return;
           }
         }
-        orderCodesToScan.push(code);
+        if (!isAgentHost) {
+          orderCodesToScan.push(code);
+        } else {
+          resultsMap.set(code, { ticketList: [], classes: [], ticketTypes: ['X'] });
+        }
         return;
       }
 
@@ -931,15 +1191,33 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
               passengerName: '',
               channel: cached.channel
             });
+          } else if (isAgentHost) {
+            if (!ticketTypes.includes('X')) ticketTypes.push('X');
+            ticketList.push({
+              ticketNum: tNum,
+              ticketClass: (cached && cached.ticket_class) || '',
+              ticketType: 'X',
+              passengerName: '',
+              channel: (cached && cached.channel) || 'PARTNER'
+            });
           } else {
             allCached = false;
           }
+        } else if (isAgentHost) {
+          if (!ticketTypes.includes('X')) ticketTypes.push('X');
+          ticketList.push({
+            ticketNum: tNum,
+            ticketClass: '',
+            ticketType: 'X',
+            passengerName: '',
+            channel: 'PARTNER'
+          });
         } else {
           allCached = false;
         }
       }
 
-      if (allCached) {
+      if (allCached || isAgentHost) {
         resultsMap.set(code, { ticketList, classes, ticketTypes });
       } else {
         if (cachedPnrsMap.has(code)) {
@@ -960,29 +1238,13 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
 
     const pnrHasJsonData = new Set();
     cachedTicketsMap.forEach(cached => {
-      if (cached.pnr_code && cached.json_data) {
-        let parsed = cached.json_data;
-        if (typeof parsed === 'string') {
-          try {
-            parsed = JSON.parse(parsed);
-          } catch (e) {}
-        }
-        if (parsed && parsed.length > 0) {
-          pnrHasJsonData.add(cached.pnr_code);
-        }
+      if (cached.pnr_code && cached.flight === true) {
+        pnrHasJsonData.add(cached.pnr_code);
       }
     });
     cachedPnrsMap.forEach((cached, pnrCode) => {
-      if (cached.json_data) {
-        let parsed = cached.json_data;
-        if (typeof parsed === 'string') {
-          try {
-            parsed = JSON.parse(parsed);
-          } catch (e) {}
-        }
-        if (parsed && parsed.length > 0) {
-          pnrHasJsonData.add(pnrCode);
-        }
+      if (cached.flight === true) {
+        pnrHasJsonData.add(pnrCode);
       }
     });
 
@@ -1041,29 +1303,60 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
       }
     });
 
-    // FlightVN/VNA: only find reservation where PNR's json_data is empty/missing
+    // 1. Tìm toàn bộ PNR có bất kỳ dòng nào chứa Hạng vé trống
+    const pnrsWithEmptyClass = new Set();
     const vnaKeys = new Set();
-    rows.forEach(row => {
-      if (row.style.display === 'none' || row.offsetHeight === 0) {
-        return;
-      }
-      if (isRefundRow(row)) {
-        return;
-      }
+    const hangVeIdx = findHeaderIndex(headers, ['hạng vé', 'hang ve', 'hạng', 'hang']);
+    console.log('[Skyjet Debug] hangVeIdx:', hangVeIdx, 'headers:', headers.map(h => h.innerText.trim()));
+
+    rows.forEach((row, rIdx) => {
+      if (row.style.display === 'none' || row.offsetHeight === 0) return;
+      if (isRefundRow(row)) return;
       const cells = row.querySelectorAll('td');
       if (cells.length > orderCodeIndex) {
         const code = cells[orderCodeIndex].innerText.trim();
         if (code && code !== '0' && code.length >= 3 && !code.includes('Tổng') && !code.includes('TỔNG')) {
           const rawCode = cells[orderCodeIndex].querySelector('.skyjet-btn span')?.innerText?.trim() || code;
-          if (rawCode.includes('*0')) {
+          if (rawCode.includes('*0')) return;
+          const cleanCode = rawCode.split('*')[0].trim();
+          
+          const savedClassText = originalTicketClasses.get(rIdx);
+          if (savedClassText !== undefined && savedClassText !== null) {
+            const hangVeText = savedClassText.replace(/&nbsp;/g, ' ').replace(/\u00a0/g, ' ').trim();
+            console.log(`[Skyjet Debug] Dòng ${rIdx + 1} | PNR: ${cleanCode} | Hạng gốc lưu trữ: "${savedClassText}" | Hạng đã lọc: "${hangVeText}"`);
+            if (hangVeText === '' || hangVeText === '-' || hangVeText === 'empty' || hangVeText === 'null') {
+              console.log(`[Skyjet Debug] -> Đã thêm PNR ${cleanCode} vào danh sách KHÔNG quét vì hạng vé trống`);
+              pnrsWithEmptyClass.add(cleanCode);
+            }
+          } else {
+            console.log(`[Skyjet Debug] Dòng ${rIdx + 1} | PNR: ${cleanCode} | Không tìm thấy hạng gốc lưu trữ`);
+          }
+        }
+      }
+    });
+
+    rows.forEach((row, rIdx) => {
+      if (row.style.display === 'none' || row.offsetHeight === 0) return;
+      if (isRefundRow(row)) return;
+      if (isAgentHost) return;
+      const cells = row.querySelectorAll('td');
+      if (cells.length > orderCodeIndex) {
+        const code = cells[orderCodeIndex].innerText.trim();
+        if (code && code !== '0' && code.length >= 3 && !code.includes('Tổng') && !code.includes('TỔNG')) {
+          const rawCode = cells[orderCodeIndex].querySelector('.skyjet-btn span')?.innerText?.trim() || code;
+          if (rawCode.includes('*0')) return;
+          const cleanCode = rawCode.split('*')[0].trim();
+          const hasAsterisk = rawCode.includes('*');
+          
+          if (pnrsWithEmptyClass.has(cleanCode)) {
+            console.log(`[Skyjet Debug] Dòng ${rIdx + 1} | Bỏ qua quét PNR: ${cleanCode} vì nằm trong pnrsWithEmptyClass`);
             return;
           }
-          const hasAsterisk = rawCode.includes('*');
-          let cleanCode = rawCode;
-          if (cleanCode) cleanCode = cleanCode.split('*')[0].trim();
-          
+
           const isFullyCached = !orderCodesToScan.includes(cleanCode);
-          if (!isFullyCached || !pnrHasJsonData.has(cleanCode)) {
+          const savedClassText = originalTicketClasses.get(rIdx);
+          console.log(`[Skyjet Debug] Dòng ${rIdx + 1} | Đánh giá PNR: ${cleanCode} | Hạng vé: "${savedClassText}" | isFullyCached: ${isFullyCached}`);
+          if (!isFullyCached) {
             const chungTuVal = getChungTuFromRow(row, table);
             const airlineId = mapChungTuToAirlineId(chungTuVal);
             if (airlineId === 'VNA' || airlineId === 'SPA' || airlineId === 'VIETJET' || airlineId === 'BAMBOO' || airlineId === 'VIETRAVEL') {
@@ -1072,9 +1365,12 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
                 if (!vnaKeys.has(key)) {
                   vnaKeys.add(key);
                   const passengerName = getPassengerNameFromRow(row, table);
-                  const nameParts = passengerName.trim().split(/s+/);
+                  const nameParts = passengerName.trim().split(/\s+/);
                   const lastName = nameParts[0] || '';
-                  vnaRequests.push({ pnr: cleanCode, lastName, passengerName, airlineId, hasAsterisk });
+                  const agCode = getCurrentAgencyCode() || 'SJNTRH';
+                  const dateCom = pnrDateMap.get(cleanCode) || null;
+                  console.log(`[Skyjet Debug] -> ĐỒNG Ý ĐƯA VÀO QUÉT FLIGHTVN: PNR ${cleanCode} (${airlineId})`);
+                  vnaRequests.push({ pnr: cleanCode, lastName, passengerName, airlineId, hasAsterisk, agCode, dateCom });
                 }
               }
             }
@@ -1144,13 +1440,16 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
               }, 15000);
 
               try {
-                chrome.runtime.sendMessage({
+                 chrome.runtime.sendMessage({
                   action: 'fetch_vietnamairlines',
                   pnr: req.pnr,
                   lastName: req.lastName,
                   passengerName: req.passengerName,
                   airlineId: req.airlineId,
-                  hasAsterisk: req.hasAsterisk
+                  hasAsterisk: req.hasAsterisk,
+                  ticketNumbers: Array.from(pnrToTickets.get(req.pnr) || []),
+                  agCode: req.agCode,
+                  dateCom: req.dateCom
                 }, (res) => {
                   try {
                     if (!resolved) {
@@ -1276,7 +1575,7 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
     };
 
     await Promise.all([
-      ...orderCodesToScan.map(async (code) => {
+      ...(isAgentHost ? [] : orderCodesToScan.map(async (code) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => {
           try {
@@ -1354,6 +1653,8 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
 
                   if (tNum && (tClass || tType || tFare !== null || tChannel)) {
                     const carrier = pnrCarrierMap.get(code) || null;
+                    const agCode = getCurrentAgencyCode() || 'SJNTRH';
+                    const dateCom = pnrDateMap.get(code) || null;
                     const ticketData = {
                       ticket_number: tNum,
                       pnr_code: code,
@@ -1361,7 +1662,9 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
                       ticket_class: tClass,
                       carrier: carrier,
                       fare: tFare,
-                      channel: tChannel
+                      channel: tChannel,
+                      AGCODE: agCode,
+                      DATECOM: dateCom
                     };
                     newTicketsToCache.push(ticketData);
 
@@ -1409,16 +1712,23 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
           ticketCompletedCount++;
           updateProgress();
         }
-      }),
+      })),
       fetchVnaSequentially()
     ]);
 
   table.skyjetResultsMap = resultsMap;
   table.skyjetVnaResultsMap = vnaResultsMap;
   renderTransactionColumns(table, resultsMap, vnaResultsMap);
+  
+  // Show the calculator floating button now that data has been fetched successfully
+  const calcBtn = document.getElementById('skyjet-calc-popup-btn');
+  if (calcBtn) {
+    calcBtn.style.display = 'flex';
+  }
   } catch (error) {
     console.error('[Skyjet Helper] Lỗi trong tiến trình kiểm tra vé:', error);
   } finally {
+    window.skyjetIsAutoFetching = false;
     if (hasLoginError) {
       btn.disabled = false;
       btn.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Chưa đăng nhập FlightVN (Thử lại)';
@@ -1438,6 +1748,44 @@ async function performTransactionChecking(btn, table, isAutoLoad = false) {
 function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
   const cachedTicketsMap = table.skyjetCachedTicketsMap || new Map();
   const currentHeaders = Array.from(table.querySelectorAll('thead th'));
+
+  // Extract original sums before columns are rearranged or added
+  if (!table.skyjetOriginalSums) {
+    const extractedSums = {
+      giaBan: '',
+      chietKhau: '',
+      no: '',
+      co: '',
+      luyKe: ''
+    };
+    
+    const initialRows = Array.from(table.querySelectorAll('tbody tr, tfoot tr'));
+    let originalTotalRow = null;
+    for (const r of initialRows) {
+      const hasColspan = Array.from(r.cells).some(c => {
+        const cs = c.getAttribute('colspan');
+        return cs && parseInt(cs, 10) > 1;
+      });
+      if (hasColspan || r.innerText.toLowerCase().includes('tổng cộng') || r.classList.contains('skyjet-auto-summary-row')) {
+        originalTotalRow = r;
+        break;
+      }
+    }
+    
+    if (originalTotalRow) {
+      const totalCells = Array.from(originalTotalRow.cells);
+      if (totalCells.length > 1) {
+        extractedSums.giaBan = totalCells[1]?.innerHTML || '';
+        extractedSums.chietKhau = totalCells[2]?.innerHTML || '';
+        extractedSums.no = totalCells[3]?.innerHTML || '';
+        extractedSums.co = totalCells[4]?.innerHTML || '';
+        extractedSums.luyKe = totalCells[5]?.innerHTML || '';
+      }
+    }
+    table.skyjetOriginalSums = extractedSums;
+  }
+  const originalSums = table.skyjetOriginalSums;
+
   let oldTargetClassHeaderIndex = -1;
   let oldTargetTypeHeaderIndex = -1;
   let oldTargetTimeHeaderIndex = -1;
@@ -1455,7 +1803,7 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
     } else if (text === 'Thời gian bay') {
       oldTargetTimeHeaderIndex = i;
       currentHeaders[i].dataset.skyjetTimeCol = "true";
-    } else if (text === 'Ngày chứng từ' || text === 'ngay chung tu' || text.toLowerCase().includes('ngày ct')) {
+    } else if (text === 'Ngày hạch toán' || text === 'ngay hach toan' || text === 'Ngày chứng từ' || text === 'ngay chung tu' || text.toLowerCase().includes('ngày ct')) {
       ngayChungTuIdx = i;
     } else if (text === 'Giá bán' || text === 'gia ban') {
       giaBanColIdx = i;
@@ -1598,7 +1946,11 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
   finalRows.forEach(row => {
     // Bỏ qua dòng bị ẩn hoặc dòng tổng cộng
     const rowText = row.innerText.toLowerCase();
-    if (rowText.includes('tổng cộng') || rowText.includes('cộng') || row.classList.contains('skyjet-auto-summary-row') || row.style.display === 'none' || row.offsetHeight === 0) {
+    const hasColspan = Array.from(row.cells).some(c => {
+      const cs = c.getAttribute('colspan');
+      return cs && parseInt(cs, 10) > 1;
+    });
+    if (hasColspan || rowText.includes('tổng cộng') || rowText.includes('cộng') || row.classList.contains('skyjet-auto-summary-row') || row.style.display === 'none' || row.offsetHeight === 0) {
       return;
     }
 
@@ -1615,16 +1967,21 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
     // Thiết lập ô Kênh
     let channelCell = row.querySelector('td[data-skyjet-channel-col="true"]');
     if (!channelCell) {
-      channelCell = document.createElement('td');
-      channelCell.style.textAlign = 'center';
-      channelCell.dataset.skyjetChannelCol = "true";
-      const cellNgayChungTu = ngayChungTuIdx !== -1 ? cells[ngayChungTuIdx] : null;
-      if (cellNgayChungTu) {
-        row.insertBefore(channelCell, cellNgayChungTu.nextSibling);
-      } else if (orderCodeCell) {
-        row.insertBefore(channelCell, orderCodeCell);
+      if (oldTargetChannelHeaderIndex !== -1 && cells[oldTargetChannelHeaderIndex]) {
+        channelCell = cells[oldTargetChannelHeaderIndex];
+        channelCell.dataset.skyjetChannelCol = "true";
       } else {
-        row.appendChild(channelCell);
+        channelCell = document.createElement('td');
+        channelCell.style.textAlign = 'center';
+        channelCell.dataset.skyjetChannelCol = "true";
+        const cellNgayChungTu = ngayChungTuIdx !== -1 ? cells[ngayChungTuIdx] : null;
+        if (cellNgayChungTu) {
+          row.insertBefore(channelCell, cellNgayChungTu.nextSibling);
+        } else if (orderCodeCell) {
+          row.insertBefore(channelCell, orderCodeCell);
+        } else {
+          row.appendChild(channelCell);
+        }
       }
     } else {
       channelCell.dataset.skyjetChannelCol = "true";
@@ -1633,19 +1990,24 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
     // Thiết lập ô Loại vé
     let typeCell = row.querySelector('td[data-skyjet-type-col="true"]');
     if (!typeCell) {
-      typeCell = document.createElement('td');
-      typeCell.style.textAlign = 'center';
-      typeCell.dataset.skyjetTypeCol = "true";
-      if (channelCell) {
-        row.insertBefore(typeCell, channelCell.nextSibling);
+      if (oldTargetTypeHeaderIndex !== -1 && cells[oldTargetTypeHeaderIndex]) {
+        typeCell = cells[oldTargetTypeHeaderIndex];
+        typeCell.dataset.skyjetTypeCol = "true";
       } else {
-        const cellNgayChungTu = ngayChungTuIdx !== -1 ? cells[ngayChungTuIdx] : null;
-        if (cellNgayChungTu) {
-          row.insertBefore(typeCell, cellNgayChungTu.nextSibling);
-        } else if (orderCodeCell) {
-          row.insertBefore(typeCell, orderCodeCell);
+        typeCell = document.createElement('td');
+        typeCell.style.textAlign = 'center';
+        typeCell.dataset.skyjetTypeCol = "true";
+        if (channelCell) {
+          row.insertBefore(typeCell, channelCell.nextSibling);
         } else {
-          row.appendChild(typeCell);
+          const cellNgayChungTu = ngayChungTuIdx !== -1 ? cells[ngayChungTuIdx] : null;
+          if (cellNgayChungTu) {
+            row.insertBefore(typeCell, cellNgayChungTu.nextSibling);
+          } else if (orderCodeCell) {
+            row.insertBefore(typeCell, orderCodeCell);
+          } else {
+            row.appendChild(typeCell);
+          }
         }
       }
     } else {
@@ -1714,8 +2076,9 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
         const chungTuVal = getChungTuFromRow(row, table);
         if (chungTuVal) {
           soVeCell.innerText = chungTuVal;
+
           const headers = Array.from(table.querySelectorAll('thead th'));
-          const idx = findHeaderIndex(headers, ['chứng từ', 'chung tu']);
+          const idx = findHeaderIndex(headers, ['hãng', 'hang', 'chứng từ', 'chung tu']);
           if (idx !== -1 && cells[idx]) {
             cells[idx].innerText = '';
           }
@@ -1728,7 +2091,7 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
       return;
     }
 
-    const resultObj = resultsMap.get(cleanCode);
+    const resultObj = resultsMap.get(cleanCode) || { ticketList: [], classes: [], ticketTypes: [] };
     let classesList = [];
     let ticketTypesList = [];
     let rowTicketNum = '';
@@ -1804,23 +2167,23 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
         mainTablePassengerName = currentCells3[passengerColIdx].innerText.trim();
       }
 
+      const isMstrMiss = (mainTablePassengerName && /mstr|miss/i.test(mainTablePassengerName)) || 
+                         (matchedTicket && matchedTicket.passengerName && /mstr|miss/i.test(matchedTicket.passengerName));
+      const giaBanText = originalGiaBanCell ? originalGiaBanCell.innerText.trim().replace(/[^0-9\-]/g, '') : '';
+      const giaBanVal = giaBanText ? parseFloat(giaBanText) : 0;
+      const hasBaby = isMstrMiss && (giaBanVal < 300000);
+
       if (matchedTicket) {
         if (matchedTicket.ticketClass) {
           classesList = [matchedTicket.ticketClass];
         }
         if (matchedTicket.ticketType) {
           let tType = matchedTicket.ticketType;
-          const isMstrMiss = (mainTablePassengerName && /mstr|miss/i.test(mainTablePassengerName)) || 
-                             (matchedTicket.passengerName && /mstr|miss/i.test(matchedTicket.passengerName));
-          const giaBanText = originalGiaBanCell ? originalGiaBanCell.innerText.trim().replace(/[^0-9\-]/g, '') : '';
-          const giaBanVal = giaBanText ? parseFloat(giaBanText) : 0;
-          const isUnder300k = giaBanVal < 300000;
-
-          if (tType && isMstrMiss && isUnder300k) {
+          if (tType && hasBaby) {
             if (!tType.endsWith('*')) {
               tType += '*';
             }
-          } else if (tType && tType.endsWith('*') && (!isMstrMiss || !isUnder300k)) {
+          } else if (tType && tType.endsWith('*') && !hasBaby) {
             tType = tType.slice(0, -1);
           }
           ticketTypesList = [tType];
@@ -1830,45 +2193,45 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
         }
       } else {
         classesList = resultObj.classes || [];
-        ticketTypesList = (resultObj.ticketTypes || []).map(tType => {
-          const isMstrMiss = mainTablePassengerName && /mstr|miss/i.test(mainTablePassengerName);
-          const giaBanText = originalGiaBanCell ? originalGiaBanCell.innerText.trim().replace(/[^0-9\-]/g, '') : '';
-          const giaBanVal = giaBanText ? parseFloat(giaBanText) : 0;
-          const isUnder300k = giaBanVal < 300000;
-
-          if (tType) {
-            if (isMstrMiss && isUnder300k) {
-              if (!tType.endsWith('*')) {
-                return tType + '*';
-              }
-            } else if (tType.endsWith('*') && (!isMstrMiss || !isUnder300k)) {
-              return tType.slice(0, -1);
+        if (rowTicketNum) {
+          let baseType = getTicketClassification(rowTicketNum);
+          if (baseType === 'Vé') {
+            const originalText = typeCell ? (typeCell.querySelector('.badge, span')?.innerText || typeCell.innerText).trim() : '';
+            if (originalText && originalText !== '-' && !originalText.includes('*')) {
+              baseType = originalText;
             }
           }
-          return tType;
-        });
+          ticketTypesList = [hasBaby ? baseType + '*' : baseType];
+        } else {
+          ticketTypesList = (resultObj.ticketTypes || []).map(tType => {
+            if (tType) {
+              if (hasBaby) {
+                if (!tType.endsWith('*')) {
+                  return tType + '*';
+                }
+              } else if (tType.endsWith('*') && !hasBaby) {
+                return tType.slice(0, -1);
+              }
+            }
+            return tType;
+          });
+        }
         if (resultObj.ticketList && resultObj.ticketList.length > 0) {
           channelVal = resultObj.ticketList[0].channel || '';
         }
-      }
-
-      const isMstrMiss = (mainTablePassengerName && /mstr|miss/i.test(mainTablePassengerName)) || 
-                         (matchedTicket && matchedTicket.passengerName && /mstr|miss/i.test(matchedTicket.passengerName));
-      const giaBanText = originalGiaBanCell ? originalGiaBanCell.innerText.trim().replace(/[^0-9\-]/g, '') : '';
-      const giaBanVal = giaBanText ? parseFloat(giaBanText) : 0;
-      const hasBaby = isMstrMiss && (giaBanVal < 300000);
-
-      if (rowTicketNum) {
-        const baseType = getTicketClassification(rowTicketNum);
-        ticketTypesList = [hasBaby ? baseType + '*' : baseType];
-      } else {
-        ticketTypesList = [hasBaby ? 'Vé*' : 'Vé'];
       }
     }
 
     if (channelCell) {
       if (channelVal) {
-        channelCell.innerHTML = `<span class="badge" style="display:inline-block; padding: 3px 6px; font-size: 11px; font-weight: 700; color: #ffffff; background-color: #0d9488; border-radius: 4px; margin: 1px;">${channelVal}</span>`;
+        let displayChannel = channelVal;
+        const upperChannel = channelVal.trim().toUpperCase();
+        if (upperChannel === 'PARTNER') {
+          displayChannel = 'PAR';
+        } else if (upperChannel === 'FLIGHTVN') {
+          displayChannel = 'FLI';
+        }
+        channelCell.innerHTML = `<span class="badge" style="display:inline-block; padding: 3px 6px; font-size: 11px; font-weight: 700; color: #ffffff; background-color: #0d9488; border-radius: 4px; margin: 1px;">${displayChannel}</span>`;
       } else {
         channelCell.innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
       }
@@ -1885,6 +2248,23 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
       }).join(' ');
     } else {
       targetCell.innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
+    }
+
+    if (typeCell) {
+      if (ticketTypesList && ticketTypesList.length > 0) {
+        typeCell.innerHTML = ticketTypesList.map(type => {
+          let bgColor = '#64748b'; // default gray
+          const upperType = type.trim().toUpperCase();
+          if (upperType.includes('VÉ') || upperType.includes('VE')) bgColor = '#3b82f6'; // blue
+          else if (upperType.includes('HOÀN') || upperType.includes('HOAN')) bgColor = '#ef4444'; // red
+          else if (upperType.includes('VOID')) bgColor = '#1e293b'; // dark slate
+          else if (upperType.includes('ĐỔI') || upperType.includes('DOI')) bgColor = '#a855f7'; // purple
+          
+          return `<span class="badge" style="display:inline-block; padding: 3px 6px; font-size: 11px; font-weight: 700; color: #ffffff; background-color: ${bgColor}; border-radius: 4px; margin: 1px;">${type}</span>`;
+        }).join(' ');
+      } else {
+        typeCell.innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
+      }
     }
 
     // Nút kiểm tra không được tác động vào cột loại vé
@@ -1943,13 +2323,13 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
             });
           }
           if (timeStrings.length > 0) {
-            timeCell.innerHTML = timeStrings.map(t => `<span style="display:inline-block; font-size: 11px; font-weight: 700; color: #38bdf8; margin: 1px;">${t}</span>`).join(' | ');
+            timeCell.innerHTML = timeStrings.map(t => `<span style="display:inline-block; font-size: 11px; font-weight: 700; margin: 1px;">${t}</span>`).join(' | ');
           } else {
             timeCell.innerHTML = `<span style="color:#cbd5e1; font-size: 11px;">-</span>`;
           }
         } else {
           const errorText = vnaResponse && vnaResponse.error ? vnaResponse.error : 'Lỗi tải giờ';
-          timeCell.innerHTML = `<span style="color:#ef4444; font-size: 11px;" title="${errorText}">${errorText}</span>`;
+          timeCell.innerHTML = `<span style="color:#cbd5e1; font-size: 11px;" title="${errorText}">-</span>`;
         }
       }
     } else {
@@ -1979,7 +2359,7 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
     }
 
     if (rowFare !== null && ticketClassification === 'Vé') {
-      fareCell.innerHTML = `<span style="font-size: 11px; font-weight: 700; color: #10b981;">${rowFare.toLocaleString('vi-VN')}</span>`;
+      fareCell.innerHTML = `<span style="font-size: 11px; font-weight: 700;">${rowFare.toLocaleString('vi-VN')}</span>`;
     } else {
       fareCell.innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
     }
@@ -2027,12 +2407,53 @@ function renderTransactionColumns(table, resultsMap, vnaResultsMap) {
     });
   });
 
+  renameAndSwapColumns(table);
   ensureChannelColPosition(table);
   ensureTypeColPosition(table);
   ensureHangVePosition(table);
   ensureTimeColPosition(table);
+  hideNgayXuatIfAllEqual(table);
+  cleanNumericCells(table);
+  rebuildTableTotalRow(table, originalSums);
 }
 
+function renameAndSwapColumns(table) {
+  if (!table) return;
+  const currentHeaders = Array.from(table.querySelectorAll('thead th'));
+  let hasStt = false;
+  let hasNgayHachToan = false;
+  let hasHang = false;
+
+  for (let i = 0; i < currentHeaders.length; i++) {
+    const text = currentHeaders[i].innerText.trim().toLowerCase();
+    if (text === 'stt') {
+      hasStt = true;
+    } else if (text === 'ngày chứng từ' || text === 'ngay chung tu' || text === 'ngày ct' || text === 'ngay ct' || text === 'ngày hạch toán' || text === 'ngay hach toan') {
+      currentHeaders[i].innerText = 'Ngày hạch toán';
+      hasNgayHachToan = true;
+    } else if (text === 'chứng từ' || text === 'chung tu' || text === 'hãng' || text === 'hang') {
+      currentHeaders[i].innerText = 'Hãng';
+      hasHang = true;
+    }
+  }
+
+  if (hasNgayHachToan) {
+    if (hasStt) {
+      moveColumnNextTo(
+        table,
+        (th) => th.innerText.trim() === 'Ngày hạch toán',
+        (th) => th.innerText.trim() === 'STT'
+      );
+    }
+    if (hasHang) {
+      moveColumnNextTo(
+        table,
+        (th) => th.innerText.trim() === 'Hãng',
+        (th) => th.innerText.trim() === 'Ngày hạch toán'
+      );
+    }
+  }
+}
 
 function ensureChannelColPosition(table) {
   moveColumnNextTo(
@@ -2043,11 +2464,10 @@ function ensureChannelColPosition(table) {
     },
     (th) => {
       const txt = th.innerText.trim().toLowerCase();
-      return txt === 'ngày chứng từ' || txt === 'ngay chung tu' || txt.toLowerCase().includes('ngày ct');
+      return txt === 'hãng' || txt === 'hang' || txt === 'chứng từ' || txt === 'chung tu';
     }
   );
 }
-
 
 function ensureTypeColPosition(table) {
   moveColumnNextTo(
@@ -2066,12 +2486,10 @@ function ensureTypeColPosition(table) {
       if (hasChannel) {
         return txt === 'kênh' || txt === 'kenh' || txt === 'channel';
       }
-      return txt === 'ngày chứng từ' || txt === 'ngay chung tu' || txt.toLowerCase().includes('ngày ct');
+      return txt === 'hãng' || txt === 'hang' || txt === 'chứng từ' || txt === 'chung tu';
     }
   );
 }
-
-
 function ensureHangVePosition(table) {
   moveColumnNextTo(
     table,
@@ -2100,7 +2518,338 @@ function ensureTimeColPosition(table) {
   );
 }
 
+function rebuildTableTotalRow(table, originalSums) {
+  if (!table) return;
+  let totalRow = table.querySelector('tfoot tr');
+  if (!totalRow) {
+    const tbodyRows = Array.from(table.querySelectorAll('tbody tr'));
+    totalRow = tbodyRows.find(r => {
+      const hasColspan = Array.from(r.cells).some(c => {
+        const cs = c.getAttribute('colspan');
+        return cs && parseInt(cs, 10) > 1;
+      });
+      return hasColspan || r.innerText.toLowerCase().includes('tổng cộng') || r.classList.contains('skyjet-auto-summary-row');
+    });
+  }
+  if (!totalRow) return;
 
+  const headers = Array.from(table.querySelectorAll('thead th'));
+  const visibleHeaders = headers.filter(th => th.style.display !== 'none');
+  
+  const tbodyRows = Array.from(table.querySelectorAll('tbody tr'));
+  const dataRows = tbodyRows.filter(r => r !== totalRow && !r.classList.contains('skyjet-auto-summary-row'));
+  const fingerprint = visibleHeaders.map(th => th.innerText.trim()).join('|') + '##' + dataRows.length;
+  if (totalRow.dataset.skyjetTotalRowFingerprint === fingerprint) {
+    return;
+  }
+  
+  totalRow.innerHTML = '';
+  
+  let labelColCount = 0;
+  for (let i = 0; i < headers.length; i++) {
+    const text = headers[i].innerText.trim().toLowerCase();
+    const isNumeric = text.includes('giá vé') || 
+                      text.includes('giá bán') || 
+                      text.includes('chiết khấu') || 
+                      text.includes('nợ') || 
+                      text.includes('có') || 
+                      text.includes('lũy kế');
+    
+    if (!isNumeric && labelColCount === i) {
+      labelColCount++;
+    } else {
+      break;
+    }
+  }
+  
+  const firstCell = document.createElement('td');
+  firstCell.style.textAlign = 'center';
+  firstCell.style.fontWeight = 'bold';
+  firstCell.style.color = '#1e3a8a';
+  firstCell.innerText = 'Tổng cộng';
+  firstCell.style.display = headers[0] ? headers[0].style.display : '';
+  if (headers[0] && headers[0].classList.contains('skyjet-hidden-col')) {
+    firstCell.classList.add('skyjet-hidden-col');
+  }
+  totalRow.appendChild(firstCell);
+  
+  for (let i = 1; i < labelColCount; i++) {
+    const emptyCell = document.createElement('td');
+    emptyCell.innerText = '';
+    emptyCell.style.display = headers[i] ? headers[i].style.display : '';
+    if (headers[i] && headers[i].classList.contains('skyjet-hidden-col')) {
+      emptyCell.classList.add('skyjet-hidden-col');
+    }
+    totalRow.appendChild(emptyCell);
+  }
+  
+  for (let i = labelColCount; i < headers.length; i++) {
+    const th = headers[i];
+    const text = th.innerText.trim().toLowerCase();
+    const cell = document.createElement('td');
+    cell.style.fontWeight = 'bold';
+    cell.style.whiteSpace = 'nowrap';
+    cell.style.width = '1%';
+    cell.style.display = th.style.display;
+    if (th.classList.contains('skyjet-hidden-col')) {
+      cell.classList.add('skyjet-hidden-col');
+    }
+    
+    if (th.dataset.skyjetFareCol === 'true') {
+      cell.dataset.skyjetFareCol = 'true';
+    }
+    
+    if (text.includes('giá vé')) {
+      let sum = 0;
+      tbodyRows.forEach(row => {
+        if (row === totalRow || row.classList.contains('skyjet-auto-summary-row') || row.style.display === 'none' || row.offsetHeight === 0) return;
+        const fareCell = row.querySelector('td[data-skyjet-fare-col="true"]');
+        if (fareCell) {
+          const val = fareCell.innerText.replace(/[., đ%vN]/gi, '').trim();
+          const num = parseInt(val, 10) || 0;
+          sum += num;
+        }
+      });
+      cell.innerText = sum > 0 ? new Intl.NumberFormat('vi-VN').format(sum) : '';
+      cell.style.textAlign = 'right';
+      cell.style.color = '#10b981';
+    } else if (text.includes('giá bán')) {
+      cell.innerHTML = originalSums.giaBan || '';
+      cell.style.textAlign = 'right';
+      cell.style.color = 'red';
+    } else if (text.includes('chiết khấu')) {
+      cell.innerHTML = originalSums.chietKhau || '';
+      cell.style.textAlign = 'right';
+      cell.style.color = 'red';
+    } else if (text.includes('nợ')) {
+      cell.innerHTML = originalSums.no || '';
+      cell.style.textAlign = 'right';
+      cell.style.color = 'red';
+    } else if (text.includes('có')) {
+      cell.innerHTML = originalSums.co || '';
+      cell.style.textAlign = 'right';
+      cell.style.color = 'red';
+    } else if (text.includes('lũy kế')) {
+      cell.innerHTML = originalSums.luyKe || '';
+      cell.style.textAlign = 'right';
+      cell.style.color = 'red';
+    } else {
+      cell.innerText = '';
+    }
+    
+    totalRow.appendChild(cell);
+  }
+  
+  totalRow.dataset.skyjetTotalRowFingerprint = fingerprint;
+}
+
+function adjustRowColumns(row, hiddenIndices) {
+  let currentVirtualCol = 0;
+  for (const cell of Array.from(row.cells)) {
+    if (cell.dataset.skyjetOrgColspan === undefined) {
+      cell.dataset.skyjetOrgColspan = cell.getAttribute('colspan') || '1';
+    }
+    const orgColspan = parseInt(cell.dataset.skyjetOrgColspan, 10);
+    
+    if (cell.dataset.skyjetOrgDisplay === undefined) {
+      cell.dataset.skyjetOrgDisplay = cell.style.display || '';
+    }
+    
+    const startCol = currentVirtualCol;
+    const endCol = currentVirtualCol + orgColspan - 1;
+    currentVirtualCol += orgColspan;
+    
+    let hiddenSpanCount = 0;
+    for (let c = startCol; c <= endCol; c++) {
+      if (hiddenIndices.has(c)) {
+        hiddenSpanCount++;
+      }
+    }
+    
+    if (hiddenSpanCount === orgColspan) {
+      cell.style.display = 'none';
+      cell.removeAttribute('colspan');
+    } else {
+      cell.style.display = cell.dataset.skyjetOrgDisplay;
+      const newColspan = orgColspan - hiddenSpanCount;
+      if (newColspan > 1) {
+        cell.setAttribute('colspan', newColspan);
+      } else {
+        cell.removeAttribute('colspan');
+      }
+    }
+  }
+}
+
+function adjustTableColspansAndVisibility(table, hiddenIndices) {
+  const tfootRows = Array.from(table.querySelectorAll('tfoot tr'));
+  tfootRows.forEach(row => adjustRowColumns(row, hiddenIndices));
+
+  const tbodyRows = Array.from(table.querySelectorAll('tbody tr'));
+  tbodyRows.forEach(row => {
+    const hasColspan = Array.from(row.cells).some(cell => cell.getAttribute('colspan') && parseInt(cell.getAttribute('colspan'), 10) > 1);
+    const isSummary = row.innerText.toLowerCase().includes('tổng cộng') || row.classList.contains('skyjet-auto-summary-row');
+    if (hasColspan || isSummary) {
+      adjustRowColumns(row, hiddenIndices);
+    }
+  });
+}
+
+function hideNgayXuatIfAllEqual(table) {
+  if (!table) return;
+  const headers = Array.from(table.querySelectorAll('thead th'));
+  let ngayHachToanIdx = -1;
+  let ngayXuatIdx = -1;
+  for (let i = 0; i < headers.length; i++) {
+    const text = headers[i].innerText.trim().toLowerCase();
+    if (text === 'ngày hạch toán' || text === 'ngay hach toan') {
+      ngayHachToanIdx = i;
+    } else if (text === 'ngày xuất' || text === 'ngay xuat') {
+      ngayXuatIdx = i;
+    }
+  }
+
+  if (ngayHachToanIdx === -1 || ngayXuatIdx === -1) return;
+
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  let allEqual = true;
+  let hasValidRows = false;
+
+  for (const row of rows) {
+    const rowText = row.innerText.toLowerCase();
+    if (rowText.includes('tổng cộng') || rowText.includes('cộng') || row.classList.contains('skyjet-auto-summary-row') || row.style.display === 'none' || row.offsetHeight === 0) {
+      continue;
+    }
+    const cells = Array.from(row.cells);
+    if (cells.length > ngayHachToanIdx && cells.length > ngayXuatIdx) {
+      const valHachToan = cells[ngayHachToanIdx].innerText.trim();
+      const valXuat = cells[ngayXuatIdx].innerText.trim();
+      
+      const isHachToanDate = /(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}\/\d{4})/.test(valHachToan);
+      const isXuatDate = /(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}\/\d{4})/.test(valXuat);
+
+      if (isHachToanDate || isXuatDate) {
+        hasValidRows = true;
+        const dateHachToan = convertToYmd(valHachToan.split(/\s+/)[0]);
+        const dateXuat = convertToYmd(valXuat.split(/\s+/)[0]);
+        if (dateHachToan !== dateXuat) {
+          allEqual = false;
+          break;
+        }
+      }
+    }
+  }
+
+  let shouldHide = hasValidRows && allEqual;
+  if (table.dataset.skyjetNgayXuatHidden === "true") {
+    shouldHide = true;
+  } else if (shouldHide) {
+    table.dataset.skyjetNgayXuatHidden = "true";
+  }
+
+  // Use CSS style tag to hide the column index-wise to prevent AJAX / React rerenders from bringing it back
+  let styleEl = document.getElementById('skyjet-hide-ngayxuat-style');
+  if (shouldHide) {
+    const cssRules = `.skyjet-hidden-col { display: none !important; }`;
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'skyjet-hide-ngayxuat-style';
+      document.head.appendChild(styleEl);
+    }
+    styleEl.innerHTML = cssRules;
+  } else {
+    if (styleEl) {
+      styleEl.remove();
+    }
+  }
+
+  // Set display/class mode for header
+  if (headers[ngayXuatIdx]) {
+    headers[ngayXuatIdx].style.display = shouldHide ? 'none' : '';
+    if (shouldHide) {
+      headers[ngayXuatIdx].classList.add('skyjet-hidden-col');
+    } else {
+      headers[ngayXuatIdx].classList.remove('skyjet-hidden-col');
+    }
+  }
+
+  // Set display/class mode for all rows (which don't have colspan)
+  rows.forEach(row => {
+    const hasColspan = Array.from(row.cells).some(cell => cell.getAttribute('colspan') && parseInt(cell.getAttribute('colspan'), 10) > 1);
+    if (!hasColspan) {
+      const cells = Array.from(row.cells);
+      if (cells[ngayXuatIdx]) {
+        cells[ngayXuatIdx].style.display = shouldHide ? 'none' : '';
+        if (shouldHide) {
+          cells[ngayXuatIdx].classList.add('skyjet-hidden-col');
+        } else {
+          cells[ngayXuatIdx].classList.remove('skyjet-hidden-col');
+        }
+      }
+    }
+  });
+
+  // Programmatically adjust colspans and visibility for footer and summary rows
+  const hiddenIndices = new Set();
+  if (shouldHide) {
+    hiddenIndices.add(ngayXuatIdx);
+  }
+  adjustTableColspansAndVisibility(table, hiddenIndices);
+}
+function isNumericColumnHeader(text) {
+  if (!text) return false;
+  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return normalized === 'gia ve' || 
+         normalized === 'gia ban' || 
+         normalized === 'chiet khau' || 
+         normalized === 'no' || 
+         normalized === 'co' || 
+         normalized === 'luy ke' ||
+         normalized === 'thanh tien' ||
+         normalized === 'don gia';
+}
+function cleanNumericCells(table) {
+  if (!table) return;
+  const headers = Array.from(table.querySelectorAll('thead th'));
+  const numericColIndices = [];
+  
+  for (let i = 0; i < headers.length; i++) {
+    const text = headers[i].innerText.trim();
+    if (isNumericColumnHeader(text)) {
+      numericColIndices.push(i);
+    }
+  }
+
+  if (numericColIndices.length === 0) return;
+
+  const rows = Array.from(table.querySelectorAll('tbody tr'));
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td'));
+    numericColIndices.forEach(idx => {
+      if (cells.length > idx && cells[idx]) {
+        const cellText = cells[idx].innerText.trim();
+        if (cellText === '' || cellText === '0' || cellText === '0.00' || cellText === '0,00') {
+          cells[idx].innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
+          cells[idx].style.textAlign = 'center';
+        }
+      }
+    });
+  });
+
+  const tfootRows = Array.from(table.querySelectorAll('tfoot tr'));
+  tfootRows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td, th'));
+    numericColIndices.forEach(idx => {
+      if (cells.length > idx && cells[idx]) {
+        const cellText = cells[idx].innerText.trim();
+        if (cellText === '' || cellText === '0' || cellText === '0.00' || cellText === '0,00') {
+          cells[idx].innerHTML = '<span style="color:#cbd5e1; font-size: 11px;">-</span>';
+          cells[idx].style.textAlign = 'center';
+        }
+      }
+    });
+  });
+}
 function mapChungTuToAirlineId(chungTuVal) {
   if (!chungTuVal) return '';
   const val = chungTuVal.toUpperCase().trim();
@@ -2125,7 +2874,7 @@ function mapChungTuToAirlineId(chungTuVal) {
 function getChungTuFromRow(row, table) {
   const headers = Array.from(table.querySelectorAll('thead th'));
   const cells = Array.from(row.querySelectorAll('td'));
-  const idx = findHeaderIndex(headers, ['chứng từ', 'chung tu']);
+  const idx = findHeaderIndex(headers, ['hãng', 'hang', 'chứng từ', 'chung tu']);
   if (idx !== -1 && cells[idx]) {
     return cells[idx].innerText.trim();
   }
@@ -2336,20 +3085,34 @@ function processTransactionTable() {
 }
 
 function decorateRows(table) {
+  renameAndSwapColumns(table);
   const headers = Array.from(table.querySelectorAll('thead th'));
   let orderCodeIndex = -1;
   let soVeColIdx = -1;
+  let sttColIdx = -1;
+  let chungTuColIdx = -1;
+  let ngayChungTuColIdx = -1;
   
-  // Quét động tiêu đề cột để xác định vị trí "Mã đơn hàng" và "Số vé"
+  // Quét động tiêu đề cột để xác định vị trí "Mã đơn hàng", "Số vé" và các cột cần căn giữa
   for (let i = 0; i < headers.length; i++) {
     const text = headers[i].innerText.trim().toLowerCase();
-    if (text === 'mã đơn hàng' || text.includes('đơn hàng') || text.includes('mã đh')) {
+    if (text === 'stt') {
+      sttColIdx = i;
+      headers[i].style.textAlign = 'center';
+    } else if (text === 'chứng từ' || text === 'chung tu' || text === 'hãng' || text === 'hang') {
+      chungTuColIdx = i;
+      headers[i].style.textAlign = 'center';
+    } else if (text === 'ngày chứng từ' || text === 'ngay chung tu' || text === 'ngày ct' || text === 'ngay ct' || text === 'ngày hạch toán' || text === 'ngay hach toan') {
+      ngayChungTuColIdx = i;
+      headers[i].style.textAlign = 'center';
+    } else if (text === 'mã đơn hàng' || text.includes('đơn hàng') || text.includes('mã đh')) {
       orderCodeIndex = i;
+      headers[i].style.textAlign = 'center';
     } else if (text === 'số vé' || text === 'so ve') {
       soVeColIdx = i;
     }
   }
-  
+
   // Nếu không quét được tiêu đề, mặc định là cột số 6 (index 5 trong JS)
   if (orderCodeIndex === -1) {
     orderCodeIndex = 5;
@@ -2358,7 +3121,35 @@ function decorateRows(table) {
   const rows = table.querySelectorAll('tbody tr');
   rows.forEach(row => {
     decorateLoaiVeWithAsterisk(row, table);
-    const cells = row.querySelectorAll('td');
+    const cells = Array.from(row.querySelectorAll('td'));
+    
+    // Căn giữa các cột được yêu cầu
+    [sttColIdx, chungTuColIdx, ngayChungTuColIdx, orderCodeIndex].forEach(idx => {
+      if (idx !== -1 && cells[idx]) {
+        cells[idx].style.textAlign = 'center';
+      }
+    });
+
+    // Clean Hãng date if equal to Ngày hạch toán
+    if (chungTuColIdx !== -1 && ngayChungTuColIdx !== -1 && cells.length > chungTuColIdx && cells.length > ngayChungTuColIdx && !row.dataset.skyjetHangCleaned) {
+      const hangText = cells[chungTuColIdx].innerText.trim();
+      const hachToanRaw = cells[ngayChungTuColIdx].innerText.trim();
+      if (hangText && hachToanRaw) {
+        const dateMatch = hangText.match(/(\d{4}-\d{2}-\d{2})|(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (dateMatch) {
+          const matchStr = dateMatch[0];
+          const hangYmd = convertToYmd(matchStr);
+          const hachToanDatePart = hachToanRaw.split(/\s+/)[0];
+          const hachToanYmd = convertToYmd(hachToanDatePart);
+          if (hangYmd && hachToanYmd && hangYmd === hachToanYmd) {
+            const newText = hangText.replace(matchStr, '').replace(/\s+/g, ' ').trim();
+            cells[chungTuColIdx].innerText = newText;
+            row.dataset.skyjetHangCleaned = "true";
+          }
+        }
+      }
+    }
+
     if (cells.length > orderCodeIndex) {
       const td = cells[orderCodeIndex];
       const orderCode = td.innerText.trim();
@@ -2370,86 +3161,151 @@ function decorateRows(table) {
         if (chungTuVal) {
           cells[soVeColIdx].innerText = chungTuVal;
           const headers = Array.from(table.querySelectorAll('thead th'));
-          const idx = findHeaderIndex(headers, ['chứng từ', 'chung tu']);
+          const idx = findHeaderIndex(headers, ['hãng', 'hang', 'chứng từ', 'chung tu']);
           if (idx !== -1 && cells[idx]) {
             cells[idx].innerText = '';
           }
         }
       }
       
-      // Chỉ gắn nút khi có mã đơn hợp lệ (độ dài >= 3 ký tự, không trống, chưa được chuyển đổi)
-      if (orderCode && orderCode !== '0' && orderCode.length >= 3 && !td.querySelector('.skyjet-btn')) {
-        td.innerHTML = ''; // Xoá nội dung text thô ban đầu
-        
-        const btn = document.createElement('button');
-        btn.className = 'skyjet-btn';
-        btn.type = 'button';
-        btn.innerHTML = '<span>' + orderCode + '</span>';
-        btn.title = 'Bấm để tra cứu nhanh thông tin vé của đơn hàng ' + orderCode;
-        
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          
-          const currentHeaders = Array.from(table.querySelectorAll('thead th'));
-          let ticketColIdx = -1;
-          let descColIdx = -1;
-          for (let i = 0; i < currentHeaders.length; i++) {
-            const hText = currentHeaders[i].innerText.trim().toLowerCase();
-            if (hText === 'số vé' || hText === 'so ve') {
-              ticketColIdx = i;
-            } else if (hText.includes('diễn giải') || hText.includes('nội dung') || hText.includes('description') || hText.includes('giao dịch')) {
-              descColIdx = i;
-            }
-          }
-          
-          let clickedTicketNum = '';
-          const rowCells = Array.from(row.querySelectorAll('td'));
-          
-          if (ticketColIdx !== -1 && rowCells[ticketColIdx]) {
-            clickedTicketNum = rowCells[ticketColIdx].innerText.trim();
-          } else {
-            let descText = '';
-            if (descColIdx !== -1 && rowCells[descColIdx]) {
-              descText = rowCells[descColIdx].innerText.trim();
-            } else {
-              let fallbackTicketIdx = -1;
-              for (let i = 0; i < currentHeaders.length; i++) {
-                const hText = currentHeaders[i].innerText.trim().toLowerCase();
-                if (hText.includes('vé') || hText.includes('ticket')) {
-                  fallbackTicketIdx = i;
-                  break;
-                }
-              }
-              if (fallbackTicketIdx !== -1 && rowCells[fallbackTicketIdx]) {
-                descText = rowCells[fallbackTicketIdx].innerText.trim();
-              }
-            }
+      // Dựa vào thời gian hiện tại so với ngày hạch toán để quyết định gắn link (chỉ áp dụng ở trang agent)
+      let shouldCreateLink = true;
+      let hachToanDateOnly = '';
+      if (ngayChungTuColIdx !== -1 && cells[ngayChungTuColIdx]) {
+        const hachToanText = cells[ngayChungTuColIdx].innerText.trim();
+        hachToanDateOnly = hachToanText.split(/\s+/)[0];
+        if (window.location.hostname.includes('agent.skyjet.vn')) {
+          shouldCreateLink = isInvoiceRequestTimeframeSatisfied(hachToanText);
+        }
+      }
+
+      // Chỉ gắn nút khi có mã đơn hợp lệ (độ dài >= 3 ký tự, không trống)
+      if (orderCode && orderCode !== '0' && orderCode.length >= 3) {
+        const existingBtn = td.querySelector('.skyjet-btn');
+        if (shouldCreateLink) {
+          if (!existingBtn) {
+            td.innerHTML = ''; // Xoá nội dung text thô ban đầu
             
-            if (descText) {
-              const parts = descText.split('-');
-              if (parts.length > 0) {
-                let result = parts[0].trim();
-                for (let i = 1; i < parts.length; i++) {
-                  const currentPart = parts[i].trim();
-                  if (currentPart.length < 3) {
-                    result = result + '-' + currentPart;
-                  } else {
-                    break;
+            const btn = document.createElement('a');
+            btn.className = 'skyjet-btn';
+            
+            const isAgentHost = window.location.hostname.includes('agent.skyjet.vn');
+            if (isAgentHost) {
+              btn.href = 'https://agent.skyjet.vn/InvoiceRequest/Create?skyjetFromDate=' + encodeURIComponent(hachToanDateOnly) + '&skyjetTicket=' + encodeURIComponent(orderCode) + '&skyjet_hide_nav=true';
+              btn.target = '_blank';
+              btn.title = 'Bấm để gửi yêu cầu xuất hóa đơn cho đơn hàng ' + orderCode;
+            } else {
+              btn.href = '#';
+              btn.title = 'Bấm để tra cứu nhanh thông tin vé của đơn hàng ' + orderCode;
+              
+              btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const currentHeaders = Array.from(table.querySelectorAll('thead th'));
+                let ticketColIdx = -1;
+                let descColIdx = -1;
+                for (let i = 0; i < currentHeaders.length; i++) {
+                  const hText = currentHeaders[i].innerText.trim().toLowerCase();
+                  if (hText === 'số vé' || hText === 'so ve') {
+                    ticketColIdx = i;
+                  } else if (hText.includes('diễn giải') || hText.includes('nội dung') || hText.includes('description') || hText.includes('giao dịch')) {
+                    descColIdx = i;
                   }
                 }
-                clickedTicketNum = result;
-              }
+                
+                let clickedTicketNum = '';
+                const rowCells = Array.from(row.querySelectorAll('td'));
+                
+                if (ticketColIdx !== -1 && rowCells[ticketColIdx]) {
+                  clickedTicketNum = rowCells[ticketColIdx].innerText.trim();
+                } else {
+                  let descText = '';
+                  if (descColIdx !== -1 && rowCells[descColIdx]) {
+                    descText = rowCells[descColIdx].innerText.trim();
+                  } else {
+                    let fallbackTicketIdx = -1;
+                    for (let i = 0; i < currentHeaders.length; i++) {
+                      const hText = currentHeaders[i].innerText.trim().toLowerCase();
+                      if (hText.includes('vé') || hText.includes('ticket')) {
+                        fallbackTicketIdx = i;
+                        break;
+                      }
+                    }
+                    if (fallbackTicketIdx !== -1 && rowCells[fallbackTicketIdx]) {
+                      descText = rowCells[fallbackTicketIdx].innerText.trim();
+                    }
+                  }
+                  
+                  if (descText) {
+                    const parts = descText.split('-');
+                    if (parts.length > 0) {
+                      let result = parts[0].trim();
+                      for (let i = 1; i < parts.length; i++) {
+                        const currentPart = parts[i].trim();
+                        if (currentPart.length < 3) {
+                          result = result + '-' + currentPart;
+                        } else {
+                          break;
+                        }
+                      }
+                      clickedTicketNum = result;
+                    }
+                  }
+                }
+                
+                fetchOrderData(orderCode, btn, clickedTicketNum);
+              });
             }
+            
+            btn.innerHTML = '<span>' + orderCode + '</span>';
+            td.appendChild(btn);
           }
-          
-          fetchOrderData(orderCode, btn, clickedTicketNum);
-        });
-        
-        td.appendChild(btn);
+        } else {
+          // Yêu cầu không thỏa, nếu đang có nút thì gỡ bỏ và trả lại text bình thường
+          if (existingBtn) {
+            td.innerHTML = '';
+            td.innerText = orderCode;
+          }
+        }
       }
     }
   });
+
+  // Tự động fit các cột của bảng chính (ngoại trừ tên khách và diễn giải)
+  const currentHeaders = Array.from(table.querySelectorAll('thead th'));
+  currentHeaders.forEach((th, idx) => {
+    const text = th.innerText.trim().toLowerCase();
+    if (text.includes('tên khách') || text.includes('ten khach') || text.includes('diễn giải') || text.includes('description')) {
+      th.style.whiteSpace = 'normal';
+      th.style.width = '99%';
+      th.style.minWidth = '140px';
+    } else {
+      th.style.whiteSpace = 'nowrap';
+      th.style.width = '1%';
+    }
+  });
+
+  const allRows = table.querySelectorAll('tbody tr');
+  allRows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td'));
+    cells.forEach((td, cellIdx) => {
+      const headerText = currentHeaders[cellIdx]?.innerText?.trim()?.toLowerCase() || '';
+      if (headerText.includes('tên khách') || headerText.includes('ten khach') || headerText.includes('diễn giải') || headerText.includes('description')) {
+        td.style.whiteSpace = 'normal';
+        td.style.width = '99%';
+        td.style.minWidth = '140px';
+      } else {
+        td.style.whiteSpace = 'nowrap';
+        td.style.width = '1%';
+      }
+    });
+  });
+  hideNgayXuatIfAllEqual(table);
+  cleanNumericCells(table);
+  if (table.skyjetOriginalSums) {
+    rebuildTableTotalRow(table, table.skyjetOriginalSums);
+  }
 }
 
 // Gọi API ngầm để lấy thông tin chi tiết vé
@@ -2639,11 +3495,11 @@ function optimizeHtmlTable(table) {
   };
   
   for (let c = 0; c < colCount; c++) {
-    // Không bao giờ ẩn các cột quan trọng nhất: STT, Số vé, Diễn giải/Hành khách
+    // Không bao giờ ẩn các cột quan trọng nhất: STT, Số vé, Diễn giải/Hành khách, Loại vé, Kênh
     if (c === 0) continue;
     
     const headText = headRow.cells[c]?.innerText?.trim()?.toLowerCase() || '';
-    if (headText.includes('số vé') || headText.includes('diễn giải') || headText.includes('ghi chú')) {
+    if (headText.includes('số vé') || headText.includes('diễn giải') || headText.includes('ghi chú') || headText.includes('loại vé') || headText.includes('kênh')) {
       continue;
     }
     
@@ -2905,8 +3761,7 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
   console.log('[Skyjet Helper] Extracted PNR for SearchAllOrder:', extractedPnr);
 
   const container = overlay.querySelector('.skyjet-modal-container');
-  container.style.maxWidth = '1400px';
-  container.style.width = '95%';
+  container.removeAttribute('style');
   
   const rows = Array.from(parsedTable.querySelectorAll('tbody tr'));
   let totalAmountStr = '0';
@@ -2945,6 +3800,13 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
       }
     });
     totalAmountStr = new Intl.NumberFormat('vi-VN').format(sum);
+  }
+
+  // Set width dynamically to avoid massive empty spaces on 1-row ticket modals
+  if (ticketCount === 1) {
+    container.classList.add('skyjet-modal-single-ticket');
+  } else {
+    container.classList.remove('skyjet-modal-single-ticket');
   }
 
   // Đánh dấu nổi bật dòng vé được chọn từ bảng công nợ tương ứng TRƯỚC KHI tối ưu xóa cột
@@ -3068,10 +3930,20 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
     
     const infoHtml = infoFields.map(f => {
       const isFull = f.label.toLowerCase().includes('khách') || f.label.toLowerCase().includes('diễn giải') || f.label.toLowerCase().includes('ghi chú');
+      let displayValue = f.value || '—';
+      if (displayValue && typeof displayValue === 'string' && displayValue.includes(' ')) {
+        const parts = displayValue.split(' ');
+        if (parts.length === 2 && parts[0].includes('/') && parts[1].includes(':')) {
+          displayValue = `<div style="text-align: right; line-height: 1.25;"><div>${parts[0]}</div><div style="font-size: 11px; font-weight: normal; color: #64748b; margin-top: 1px;">${parts[1]}</div></div>`;
+        }
+      }
       return `
         <div class="skyjet-single-card-field ${isFull ? 'skyjet-single-card-field-full' : ''}">
-          <span class="skyjet-single-card-field-label">${f.icon} ${f.label}</span>
-          <span class="skyjet-single-card-field-value ${f.label.toLowerCase().includes('vé') || f.label.toLowerCase().includes('pnr') ? 'skyjet-single-card-field-value-mono' : ''}">${f.value || '—'}</span>
+          <span class="skyjet-single-card-field-label">
+            <span class="skyjet-single-card-field-icon-bg">${f.icon}</span>
+            ${f.label}
+          </span>
+          <span class="skyjet-single-card-field-value ${f.label.toLowerCase().includes('vé') || f.label.toLowerCase().includes('pnr') ? 'skyjet-single-card-field-value-mono' : ''}">${displayValue}</span>
         </div>
       `;
     }).join('');
@@ -3082,7 +3954,10 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
     }).map(f => {
       return `
         <div class="skyjet-single-card-field">
-          <span class="skyjet-single-card-field-label">💰 ${f.label}</span>
+          <span class="skyjet-single-card-field-label">
+            <span class="skyjet-single-card-field-icon-bg">💰</span>
+            ${f.label}
+          </span>
           <span class="skyjet-single-card-field-value skyjet-single-card-field-value-mono">${f.value || '0'}</span>
         </div>
       `;
@@ -3090,15 +3965,15 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
     
     const supplierPriceDiv = supplierPriceVal ? `
       <div style="text-align: right;">
-        <span class="skyjet-single-card-field-label" style="color: #64748b; display: block !important; margin-bottom: 2px !important; text-align: right !important;">Giá Net Nhà Cung Cấp</span>
-        <span class="skyjet-single-card-field-value skyjet-single-card-field-value-mono" style="color: #475569; font-size: 13px !important; display: block !important; text-align: right !important;">${supplierPriceVal}</span>
+        <span class="skyjet-single-card-field-label" style="color: #0f766e; display: block !important; margin-bottom: 2px !important; text-align: right !important; font-weight: 700 !important; font-size: 10px !important; letter-spacing: 0.5px !important;">Giá Net Nhà Cung Cấp</span>
+        <span class="skyjet-single-card-field-value skyjet-single-card-field-value-mono" style="color: #0d9488; font-size: 16px !important; font-weight: 800 !important; display: block !important; text-align: right !important;">${supplierPriceVal}</span>
       </div>
     ` : '';
     
     embedHtmlContent = `
       <div class="skyjet-single-row-container">
         <div class="skyjet-single-card-block">
-          <div class="skyjet-single-card-header" style="color: #1a56db; font-size: 12px !important;">
+          <div class="skyjet-single-card-header skyjet-single-card-header-blue">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16"></path><path d="M2 21h20"></path><path d="M10 7h4"></path><path d="M10 11h4"></path><path d="M10 15h4"></path></svg>
             Thông tin đặt vé
           </div>
@@ -3108,7 +3983,7 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
         </div>
         
         <div class="skyjet-single-card-block">
-          <div class="skyjet-single-card-header" style="color: #10b981; font-size: 12px !important;">
+          <div class="skyjet-single-card-header skyjet-single-card-header-green">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"></rect><line x1="12" y1="4" x2="12" y2="20"></line><line x1="2" y1="12" x2="22" y2="12"></line></svg>
             Tài chính &amp; Thanh toán
           </div>
@@ -3117,8 +3992,8 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
             
             <div class="skyjet-single-card-total-box">
               <div style="text-align: left;">
-                <span class="skyjet-single-card-field-label" style="color: #047857; display: block !important; margin-bottom: 2px !important; text-align: left !important;">Tổng thanh toán cuối</span>
-                <span class="skyjet-single-card-field-value skyjet-single-card-field-value-mono" style="color: #10b981; font-size: 16px !important; font-weight: 800 !important; display: block !important; text-align: left !important;">${totalPriceVal} <span style="font-size: 11px !important; font-weight: normal !important; text-transform: lowercase;">vnđ</span></span>
+                <span class="skyjet-single-card-field-label" style="color: #047857; display: block !important; margin-bottom: 2px !important; text-align: left !important; font-weight: 700 !important; font-size: 10px !important; letter-spacing: 0.5px !important;">Tổng thanh toán cuối</span>
+                <span class="skyjet-single-card-field-value skyjet-single-card-field-value-mono" style="color: #059669; font-size: 20px !important; font-weight: 800 !important; display: block !important; text-align: left !important;">${totalPriceVal} <span style="font-size: 12px !important; font-weight: normal !important; text-transform: lowercase; color: #047857 !important;">vnđ</span></span>
               </div>
               ${supplierPriceDiv}
             </div>
@@ -3135,13 +4010,16 @@ function showModalResults(orderCode, parsedTable, clickedTicketNum) {
   }
   
   const body = overlay.querySelector('.skyjet-modal-body');
+  body.removeAttribute('style');
   body.innerHTML = `
     ${commonFieldsHtml}
     
+    ${ticketCount > 1 ? `
     <div class="skyjet-modal-section-title">
       <span class="skyjet-modal-section-title-bar"></span>
-      ${ticketCount === 1 ? 'Báo cáo chi tiết vé đơn hàng (Tối ưu dạng thẻ gọn):' : 'Chi tiết báo cáo các vé của đơn hàng:'}
+      Chi tiết báo cáo các vé của đơn hàng:
     </div>
+    ` : ''}
     
     ${embedHtmlContent}
   `;
@@ -3273,7 +4151,7 @@ function applySplitDescription(table) {
       return routeParts.join('-');
     }
   }
-
+  renameAndSwapColumns(table);
   const headers = Array.from(table.querySelectorAll('thead th'));
   let descColIndex = -1;
   let loaiVeColIdx = -1;
@@ -3285,13 +4163,12 @@ function applySplitDescription(table) {
       descColIndex = i;
     } else if (text === 'loại vé' || text === 'loai ve') {
       loaiVeColIdx = i;
-    } else if (text === 'ngày chứng từ' || text === 'ngay chung tu' || text.includes('ngày ct')) {
+    } else if (text === 'ngày hạch toán' || text === 'ngay hach toan' || text === 'ngày chứng từ' || text === 'ngay chung tu' || text.includes('ngày ct')) {
       ngayChungTuIdx = i;
     } else if (text === 'mã đơn hàng' || text.includes('đơn hàng') || text.includes('mã đh')) {
       orderCodeIndex = i;
     }
   }
-
   if (descColIndex === -1) {
     return;
   }
@@ -3501,10 +4378,10 @@ function applySplitDescription(table) {
     row.dataset.splitDescProcessed = "true";
     decorateLoaiVeWithAsterisk(row, table);
   });
-
   table.dataset.splitDescActive = "true";
   ensureTypeColPosition(table);
   ensureHangVePosition(table);
+  hideNgayXuatIfAllEqual(table);
 }
 function revertSplitDescription(table) {
   if (table.dataset.splitDescActive === "true" && table.dataset.originalHtml) {
@@ -3515,6 +4392,132 @@ function revertSplitDescription(table) {
     processTransactionTable();
   }
 }
+function injectFundLimitInfo() {
+  const pElements = Array.from(document.querySelectorAll('p, div, span, td, strong'));
+  const targetEl = pElements.find(el => {
+    const txt = el.textContent || "";
+    if (txt.includes("Phòng vé:") && txt.includes("Mã KH:") && !el.dataset.fundLimitInjected) {
+      const hasMatchingChild = Array.from(el.children).some(child => {
+        const cTxt = child.textContent || "";
+        return cTxt.includes("Phòng vé:") && cTxt.includes("Mã KH:");
+      });
+      return !hasMatchingChild;
+    }
+    return false;
+  });
+
+  if (!targetEl) return;
+  targetEl.dataset.fundLimitInjected = "true";
+
+  const txt = targetEl.textContent || "";
+  const codeM = txt.match(/Mã KH:\s*([A-Za-z0-9_]+)/i);
+  if (!codeM) return;
+  const agentCode = codeM[1].trim();
+
+  const params = new URLSearchParams();
+  params.append('pageIndex', '0');
+  params.append('pageSize', '100');
+  params.append('agentId', agentCode);
+
+  fetch('/DaiLyArea/Daily/SearchMemberList', {
+    method: 'POST',
+    body: params,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  })
+    .then(r => r.text())
+    .then(html => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      function findValueInDoc(parsedDoc) {
+        const table = parsedDoc.querySelector('table');
+        if (!table) return null;
+        
+        const headers = Array.from(table.querySelectorAll('thead th, tr:first-child th, tr:first-child td'));
+        if (headers.length === 0) return null;
+
+        let codeColIdx = -1;
+        let aqColIdx = -1;
+
+        headers.forEach((th, idx) => {
+          const text = th.innerText.trim().toLowerCase();
+          if (text === 'mã kh' || text === 'mã khách hàng' || text === 'mã đại lý' || text === 'ma kh' || text === 'mã dl' || text.includes('mã')) {
+            if (codeColIdx === -1) codeColIdx = idx;
+          }
+          if (text.includes('aq') || text.includes('cho phép') || text.includes('cho phep') || text === 'aq cho phép') {
+            aqColIdx = idx;
+          }
+        });
+
+        if (aqColIdx === -1) {
+          headers.forEach((th, idx) => {
+            const text = th.innerText.trim().toLowerCase();
+            if (text.includes('aq') || text.includes('cho phép')) {
+              aqColIdx = idx;
+            }
+          });
+        }
+
+        if (aqColIdx === -1) return null;
+
+        const rows = Array.from(table.querySelectorAll('tbody tr, tr'));
+        for (const row of rows) {
+          const cells = Array.from(row.querySelectorAll('td'));
+          if (cells.length > aqColIdx) {
+            let rowMatches = false;
+            if (codeColIdx !== -1 && cells.length > codeColIdx) {
+              const cellText = cells[codeColIdx].innerText.trim();
+              if (cellText === agentCode || cellText.includes(agentCode)) {
+                rowMatches = true;
+              }
+            } else {
+              rowMatches = cells.some(cell => cell.innerText.trim() === agentCode);
+            }
+
+            if (rowMatches) {
+              return cells[aqColIdx].innerText.trim();
+            }
+          }
+        }
+        return null;
+      }
+
+      const value = findValueInDoc(doc);
+      if (value) {
+        appendFundLabel(value);
+      }
+    })
+    .catch(err => console.error('[Skyjet Helper] Error fetching fund limit:', err));
+
+  function appendFundLabel(fundValue) {
+    // Thay đổi chữ "Phòng vé:" thành "Đại lý:" ở đầu element gốc
+    const originalHtml = targetEl.innerHTML;
+    if (originalHtml.includes("Phòng vé:")) {
+      targetEl.innerHTML = originalHtml.replace("Phòng vé:", "Đại lý:");
+    }
+
+    // Làm sạch và định dạng giá trị hạn mức với dấu chấm thay cho dấu phẩy
+    const cleanedValue = fundValue.replace(/đ|VNĐ|vnd/gi, '').trim().replace(/,/g, '.');
+
+    // Tạo thẻ span hiển thị Hạn mức
+    const span = document.createElement('span');
+    span.style.color = '#e11d48'; // Đỏ rose-600
+    span.style.fontWeight = 'bold';
+    span.style.marginLeft = '8px';
+    span.style.padding = '2px 8px';
+    span.style.backgroundColor = 'rgba(225, 29, 72, 0.08)';
+    span.style.border = '1px solid rgba(225, 29, 72, 0.25)';
+    span.style.borderRadius = '4px';
+    span.style.fontSize = '12px';
+    span.style.display = 'inline-block';
+    span.style.verticalAlign = 'middle';
+    span.innerText = ` - Hạn mức: ${cleanedValue}`;
+
+    targetEl.appendChild(span);
+  }
+}
 
 if (window.skyjetHelperInitialized) {
   if (typeof handleSearchTransactionQuery === 'function') handleSearchTransactionQuery();
@@ -3522,4 +4525,29 @@ if (window.skyjetHelperInitialized) {
   if (typeof processTransactionTable === 'function') processTransactionTable();
   if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
   if (typeof handleSplitDescription === 'function') handleSplitDescription();
+  
+  // Run credit limit info injection
+  injectFundLimitInfo();
+  setTimeout(injectFundLimitInfo, 500);
+  setTimeout(injectFundLimitInfo, 1500);
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[id*="search" i], button[id*="btn" i], input[type="submit"], #searchBtn, #btnSearch, .btn-search');
+    if (btn) {
+      if (btn.id !== 'skyjet-check-btn') {
+        const table = document.getElementById('tableContent');
+        if (table) {
+          delete table.dataset.skyjetNgayXuatHidden;
+          delete table.dataset.decoratedBySkyjet;
+        }
+      }
+      // Xóa dataset đã đánh dấu trên tất cả các phần tử để injectFundLimitInfo có thể chạy lại cho đại lý mới
+      document.querySelectorAll('[data-fund-limit-injected]').forEach(el => {
+        delete el.dataset.fundLimitInjected;
+      });
+      // Kích hoạt lại việc lấy hạn mức sau khi dữ liệu tải lại (AJAX)
+      setTimeout(injectFundLimitInfo, 500);
+      setTimeout(injectFundLimitInfo, 1500);
+    }
+  });
 }

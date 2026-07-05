@@ -1,9 +1,98 @@
 document.addEventListener('DOMContentLoaded', () => {
+  const consentScreen = document.getElementById('consent-screen');
+  const mainAppUi = document.getElementById('main-app-ui');
+  const consentAcceptBtn = document.getElementById('consent-accept-btn');
+  const consentDeclineBtn = document.getElementById('consent-decline-btn');
+
+  function checkConsent() {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(['skyjet_user_consent'], (result) => {
+        if (result && result.skyjet_user_consent === true) {
+          consentScreen.style.display = 'none';
+          mainAppUi.style.display = 'block';
+        } else {
+          consentScreen.style.display = 'flex';
+          mainAppUi.style.display = 'none';
+        }
+      });
+    } else {
+      consentScreen.style.display = 'none';
+      mainAppUi.style.display = 'block';
+    }
+  }
+
+  if (consentAcceptBtn && consentDeclineBtn) {
+    consentAcceptBtn.addEventListener('click', () => {
+      chrome.storage.local.set({ skyjet_user_consent: true }, () => {
+        checkConsent();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { action: 'update_visibility' });
+          }
+        });
+      });
+    });
+    consentDeclineBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
+
+  checkConsent();
+
+  // Extension activation toggle logic
+  const extensionActiveToggle = document.getElementById('extension-active-toggle');
+  if (extensionActiveToggle && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['extensionDisabled'], (result) => {
+      extensionActiveToggle.checked = !result.extensionDisabled;
+    });
+
+    extensionActiveToggle.addEventListener('change', () => {
+      const isDisabled = !extensionActiveToggle.checked;
+      chrome.storage.local.set({ extensionDisabled: isDisabled }, () => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          if (tabs[0] && tabs[0].url) {
+            const url = tabs[0].url;
+             if (url.includes('erp.skyjet.vn') || url.includes('agent.skyjet.vn') || url.includes('flightvn.com')) {
+              chrome.tabs.reload(tabs[0].id);
+            }
+          }
+        });
+      });
+    });
+  }
+
   const versionEl = document.getElementById('ext-version');
   if (versionEl && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) {
     versionEl.textContent = 'v' + chrome.runtime.getManifest().version;
   }
   const listEl = document.getElementById('sections-list');
+  if (listEl) {
+    listEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const draggingItem = listEl.querySelector('.dragging');
+      if (!draggingItem) return;
+      const siblings = [...listEl.querySelectorAll('.drag-item:not(.dragging)')];
+      const nextSibling = siblings.find(sibling => {
+        const box = sibling.getBoundingClientRect();
+        const offset = e.clientY - box.top - box.height / 2;
+        return offset < 0;
+      });
+      listEl.insertBefore(draggingItem, nextSibling);
+    });
+  }
+  const toggleHideChecksBtn = document.getElementById('toggle-hide-checks');
+  if (toggleHideChecksBtn && listEl) {
+    toggleHideChecksBtn.addEventListener('click', () => {
+      const isHidden = listEl.classList.contains('hide-checkboxes');
+      if (isHidden) {
+        listEl.classList.remove('hide-checkboxes');
+        toggleHideChecksBtn.textContent = 'Ẩn check ẩn';
+      } else {
+        listEl.classList.add('hide-checkboxes');
+        toggleHideChecksBtn.textContent = 'Hiện check ẩn';
+      }
+    });
+  }
   const customListEl = document.getElementById('custom-links-list');
   const addBtn = document.getElementById('add-custom-btn');
   const titleInput = document.getElementById('custom-title-input');
@@ -163,6 +252,52 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function getNormalizedUrl(urlStr) {
+    if (!urlStr) return '';
+    try {
+      const urlObj = new URL(urlStr);
+      urlObj.searchParams.delete('skyjet_hide_nav');
+      urlObj.searchParams.sort();
+      let path = urlObj.pathname.toLowerCase();
+      if (path.endsWith('/')) {
+        path = path.slice(0, -1);
+      }
+      return urlObj.hostname + path + '?' + urlObj.searchParams.toString();
+    } catch (e) {
+      return urlStr.toLowerCase();
+    }
+  }
+
+  function checkShortcutBuilderVisibility(activeTabUrl) {
+    if (!activeTabUrl) return;
+    
+    let isMenuPage = false;
+    try {
+      const urlObj = new URL(activeTabUrl);
+      const path = urlObj.pathname.toLowerCase();
+      isMenuPage = urlObj.hostname === 'erp.skyjet.vn' && 
+                   (path === '/' || 
+                    path === '/home' || 
+                    path === '/home/index' || 
+                    path === '/menuarea' || 
+                    path === '/menuarea/index');
+    } catch (e) {}
+
+    const detailsCustomLinks = document.getElementById('details-custom-links');
+    if (!detailsCustomLinks) return;
+
+    if (isMenuPage) {
+      detailsCustomLinks.style.display = 'none';
+    } else {
+      chrome.storage.local.get(['customShortcuts'], (res) => {
+        const shortcuts = res.customShortcuts || [];
+        const currentNorm = getNormalizedUrl(activeTabUrl);
+        const alreadyAdded = shortcuts.some(sc => getNormalizedUrl(sc.url) === currentNorm);
+        detailsCustomLinks.style.display = alreadyAdded ? 'none' : 'block';
+      });
+    }
+  }
+
   // Tải danh sách menu nhanh lần đầu
   initIconPicker();
   updateQuickMenu();
@@ -171,18 +306,40 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!tabs[0]) return;
     const activeTab = tabs[0];
     
+    // Auto fill custom link inputs if the active tab is erp.skyjet.vn
+    if (activeTab.url && activeTab.url.includes('erp.skyjet.vn')) {
+      if (urlInput) {
+        let tabUrl = activeTab.url;
+        try {
+          const urlObj = new URL(tabUrl);
+          urlObj.searchParams.set('skyjet_hide_nav', 'true');
+          tabUrl = urlObj.toString();
+        } catch (e) {}
+        urlInput.value = tabUrl;
+      }
+      if (titleInput && activeTab.title) {
+        const cleanTitle = activeTab.title.replace(/\s*-\s*Skyjet\s*(ERP)?/i, '').trim();
+        titleInput.value = cleanTitle;
+      }
+    }
+    
     const settingsContainer = document.getElementById('settings-container');
     
     let isMenuPage = false;
     try {
       if (activeTab.url) {
         const urlObj = new URL(activeTab.url);
+        const path = urlObj.pathname.toLowerCase();
         isMenuPage = urlObj.hostname === 'erp.skyjet.vn' && 
-                     (urlObj.pathname === '/' || 
-                      urlObj.pathname.toLowerCase() === '/home' || 
-                      urlObj.pathname.toLowerCase() === '/home/index');
+                     (path === '/' || 
+                      path === '/home' || 
+                      path === '/home/index' || 
+                      path === '/menuarea' || 
+                      path === '/menuarea/index');
       }
     } catch (e) {}
+
+    checkShortcutBuilderVisibility(activeTab.url);
 
     if (isMenuPage) {
       if (settingsContainer) settingsContainer.style.display = 'block';
@@ -203,6 +360,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const sectionOrder = result.sectionOrder || [];
           listEl.innerHTML = ''; 
 
+          function saveNewOrder() {
+            const order = [];
+            const items = listEl.querySelectorAll('.drag-item');
+            items.forEach(item => {
+              if (item.dataset.title) {
+                order.push(item.dataset.title);
+              }
+            });
+            chrome.storage.local.set({ sectionOrder: order }, () => {
+              chrome.tabs.sendMessage(activeTab.id, { action: 'update_visibility' });
+            });
+          }
           // Sắp xếp các mục theo thứ tự đã lưu trước khi hiển thị
           sections.sort((a, b) => {
             let idxA = sectionOrder.indexOf(a.title);
@@ -215,13 +384,21 @@ document.addEventListener('DOMContentLoaded', () => {
           sections.forEach((sec) => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'drag-item';
-            itemDiv.setAttribute('draggable', 'true');
+            itemDiv.setAttribute('draggable', 'false');
             itemDiv.dataset.index = sec.index;
             itemDiv.dataset.title = sec.title;
 
             const handle = document.createElement('span');
             handle.className = 'drag-handle';
             handle.textContent = '☰';
+            handle.style.cursor = 'grab';
+            
+            handle.addEventListener('mousedown', () => {
+              itemDiv.setAttribute('draggable', 'true');
+            });
+            handle.addEventListener('mouseup', () => {
+              itemDiv.setAttribute('draggable', 'false');
+            });
 
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -269,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             itemDiv.addEventListener('dragend', () => {
               itemDiv.classList.remove('dragging');
+              itemDiv.setAttribute('draggable', 'false');
               saveNewOrder();
             });
 
@@ -281,39 +459,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let isSearchTransactionPage = false;
+    let isAgentHost = false;
     try {
       if (activeTab.url) {
         const urlObj = new URL(activeTab.url);
-        isSearchTransactionPage = urlObj.pathname.toLowerCase() === '/agentarea/agent/searchtransaction';
+        const path = urlObj.pathname.toLowerCase();
+        isSearchTransactionPage = path === '/agentarea/agent/searchtransaction' || path === '/transaction/searchtransaction';
+        isAgentHost = urlObj.hostname.toLowerCase() === 'agent.skyjet.vn';
       }
     } catch (e) {}
 
     const searchTransContainer = document.getElementById('search-transaction-container');
     const splitDescCheckbox = document.getElementById('split-desc-checkbox');
-    const darkModeCheckbox = document.getElementById('dark-mode-checkbox');
-
-    chrome.storage.local.get(['skyjet_dark_mode'], (res) => {
-      if (darkModeCheckbox) {
-        darkModeCheckbox.checked = !!res.skyjet_dark_mode;
-        document.body.classList.toggle('dark-mode', !!res.skyjet_dark_mode);
-      }
-    });
-    if (darkModeCheckbox) {
-      darkModeCheckbox.onchange = () => {
-        chrome.storage.local.set({ skyjet_dark_mode: darkModeCheckbox.checked }, () => {
-          chrome.tabs.sendMessage(activeTab.id, { action: 'update_visibility' });
-        });
-        document.body.classList.toggle('dark-mode', darkModeCheckbox.checked);
-      };
-    }
 
     if (isSearchTransactionPage) {
       if (searchTransContainer) searchTransContainer.style.display = 'block';
+      
       chrome.storage.local.get(['skyjet_split_desc'], (res) => {
         if (splitDescCheckbox) {
           splitDescCheckbox.checked = !!res.skyjet_split_desc;
         }
       });
+      
       if (splitDescCheckbox) {
         splitDescCheckbox.onchange = () => {
           chrome.storage.local.set({ skyjet_split_desc: splitDescCheckbox.checked }, () => {
@@ -399,6 +566,9 @@ document.addEventListener('DOMContentLoaded', () => {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
               if (tabs[0]) {
                 chrome.tabs.sendMessage(tabs[0].id, { action: 'update_visibility' });
+                if (tabs[0].url) {
+                  checkShortcutBuilderVisibility(tabs[0].url);
+                }
               }
             });
           });
@@ -457,6 +627,9 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (tabs[0]) {
             chrome.tabs.sendMessage(tabs[0].id, { action: 'update_visibility' });
+            if (tabs[0].url) {
+              checkShortcutBuilderVisibility(tabs[0].url);
+            }
           }
         });
       });

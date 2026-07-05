@@ -1011,7 +1011,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
 
-        const ticket_type = (hasAsterisk && parsedTicketClass) ? 'Vé bán' : null;
+        const ticket_type = (hasAsterisk && parsedTicketClass) ? 'Vé' : null;
         const ticket_class = parsedTicketClass || null;
         const farePerTicket = parsedFare !== null ? parsedFare : null;
         sendResponse({ success: true, source: 'flightvn', data, ticket_type, ticket_class, fare: farePerTicket, ticketFareMap: ticketFareMap, supabaseStatus });

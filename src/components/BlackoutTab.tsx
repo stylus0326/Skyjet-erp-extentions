@@ -7,6 +7,7 @@ import {
   X, Check, ArrowUpDown, RefreshCw, Layers
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { CustomDatePicker } from './CustomDatePicker';
 
 export function BlackoutTab() {
   const [periods, setPeriods] = useState<CampaignBlackoutPeriod[]>([]);
@@ -428,7 +429,7 @@ export function BlackoutTab() {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-zinc-900 rounded-2xl w-full max-w-md shadow-2xl border border-zinc-800 overflow-hidden my-8 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 rounded-2xl w-full max-w-md shadow-2xl border border-zinc-800 overflow-visible my-8 animate-in fade-in duration-200">
 
 
             {/* Modal Body */}
@@ -447,24 +448,20 @@ export function BlackoutTab() {
               {/* Start Date */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 mb-1">Ngày Bắt đầu *</label>
-                <input
-                  type="date"
-                  required
+                <CustomDatePicker
                   value={formStartDate}
-                  onChange={(e) => setFormStartDate(e.target.value)}
-                  className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                  onChange={setFormStartDate}
+                  quarterType="start"
                 />
               </div>
 
               {/* End Date */}
               <div>
                 <label className="block text-xs font-bold text-zinc-400 mb-1">Ngày Kết thúc *</label>
-                <input
-                  type="date"
-                  required
+                <CustomDatePicker
                   value={formEndDate}
-                  onChange={(e) => setFormEndDate(e.target.value)}
-                  className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                  onChange={setFormEndDate}
+                  quarterType="end"
                 />
               </div>
 

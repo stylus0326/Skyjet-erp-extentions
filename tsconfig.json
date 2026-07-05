@@ -25,6 +25,7 @@
   },
   "exclude": [
     "scratch",
-    "node_modules"
+    "node_modules",
+    "forgewright"
   ]
 }

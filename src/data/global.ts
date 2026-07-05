@@ -68,6 +68,19 @@ function initSkyjetHelper() {
   if (window.skyjetHelperInitialized) return;
   window.skyjetHelperInitialized = true;
 
+  const path = window.location.pathname.toLowerCase();
+  if (
+    path.includes('/agentarea/agent/searchtransaction') ||
+    path.includes('/transaction/searchtransaction') ||
+    path.includes('/orderreportarea/orderreport/searchallorder')
+  ) {
+    document.body.classList.add('skyjet-custom-font-table');
+  }
+
+  if (window.location.hostname.includes('agent.skyjet.vn')) {
+    document.body.classList.add('skyjet-agent-host');
+  }
+
   if (window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('agent.skyjet.vn') || window.location.hostname.includes('flightvn.com')) {
     const isHomepage = window.location.pathname === '/' || window.location.pathname === '';
     const cameFromLogin = document.referrer && (document.referrer.includes('/LoginArea/Login/Index') || document.referrer.includes('/Account/Login'));
@@ -125,6 +138,7 @@ function initSkyjetHelper() {
   if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
   if (typeof handleSplitDescription === 'function') handleSplitDescription();
   if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
+  if (typeof handleInvoiceRequestCreatePage === 'function') handleInvoiceRequestCreatePage();
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     applyVisibilitySettings();

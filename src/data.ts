@@ -8,6 +8,7 @@ import { backgroundFile } from './data/background';
 import { injectCssFile } from './data/injectCss';
 import { popupHtmlFile } from './data/popupHtml';
 import { popupJsFile } from './data/popupJs';
+import { mainWorldFile } from './data/mainWorld';
 
 // Raw Chrome Extension Files to display and package
 export const extensionFiles: ExtensionFile[] = [
@@ -19,5 +20,6 @@ export const extensionFiles: ExtensionFile[] = [
   backgroundFile,
   injectCssFile,
   popupHtmlFile,
-  popupJsFile
+  popupJsFile,
+  mainWorldFile
 ];

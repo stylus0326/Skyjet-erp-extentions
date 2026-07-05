@@ -86,6 +86,14 @@ function main() {
       variableName: 'popupJsFile',
       targetTsFile: 'popupJs.ts',
       description: 'Script điều khiển các chức năng và tương tác trên màn hình popup.'
+    },
+    {
+      name: 'main-world.js',
+      path: 'main-world.js',
+      language: 'javascript',
+      variableName: 'mainWorldFile',
+      targetTsFile: 'mainWorld.ts',
+      description: 'Script chạy trong MAIN world để tương tác trực tiếp với các thư viện của trang (ví dụ Flatpickr).'
     }
   ];
 

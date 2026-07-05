@@ -21,23 +21,7 @@
       --logo-text: #ffffff;
     }
     
-    body.dark-mode {
-      /* Charcoal/Zinc Dark Mode variables (Antigravity IDE theme) */
-      --background: #0c0c0e;
-      --panel-bg: #18181b;
-      --border: #27272a;
-      --border-hover: #3f3f46;
-      --text-primary: #f4f4f5;
-      --text-secondary: #e4e4e7;
-      --text-muted: #a1a1aa;
-      --btn-bg: #18181b;
-      --btn-border: #27272a;
-      --btn-text: #e4e4e7;
-      --btn-hover-bg: #222226;
-      --drag-bg: #18181b;
-      --logo-bg: #38bdf8;
-      --logo-text: #0c0c0e;
-    }
+    /* Removed body.dark-mode variable styles */
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -189,11 +173,15 @@
       font-size: 10px;
       color: var(--text-secondary);
       font-weight: bold;
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
       width: 100%;
       text-align: center;
+      line-height: 1.25;
+      word-break: break-word;
     }
     
     /* Icon Picker styling */
@@ -242,82 +230,150 @@
     input[type="text"]:focus {
       border-color: var(--border-hover);
     }
+    
+    /* iOS-style toggle switch */
+    .switch-toggle {
+      position: relative;
+      display: inline-block;
+      width: 34px;
+      height: 20px;
+    }
+    .switch-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border);
+      transition: .2s;
+      border-radius: 20px;
+    }
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+    input:checked + .switch-slider {
+      background-color: #10b981;
+    }
+    input:checked + .switch-slider:before {
+      transform: translateX(14px);
+    }
   </style>
 </head>
 <body>
-  <div class="header" style="justify-content: space-between;">
-    <div style="display: flex; align-items: center; gap: 10px;">
-      <div class="logo">SJ</div>
+  <!-- Consent Screen UI -->
+  <div id="consent-screen" style="display: none; flex-direction: column; gap: 12px; padding: 4px 0;">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
       <div>
         <h1 class="title">Skyjet ERP Helper</h1>
         <div style="margin-top: 2px;">
-          <span id="ext-version" style="font-size: 10px; color: var(--text-muted); font-weight: 500;"></span>
+          <span style="font-size: 10px; color: var(--text-muted); font-weight: 500;">Thông báo quyền riêng tư</span>
         </div>
       </div>
     </div>
-    <button type="button" id="start-picker-btn" title="Chụp hình thẻ (Chụp Element)" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.15s; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25); flex-shrink: 0; outline: none; padding: 0;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-    </button>
-  </div>
-
-  <!-- Custom Shortcuts Grid Area (3x3, max 9 items) -->
-  <div id="custom-menu-container" style="padding-top: 4px; margin-top: 4px; display: none;">
-    <div id="custom-menu-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 6px;"></div>
-  </div>
-
-  <div id="settings-container" style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: none;">
-    <details id="details-settings" style="cursor: pointer;">
-      <summary style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none; display: flex; justify-content: space-between; align-items: center;">
-        <span>🛠️ Hiển thị & Sắp xếp vị trí (Kéo thả)</span>
-      </summary>
-      <div id="toggle-hide-checks-container" style="margin-top: 6px; display: flex; justify-content: flex-end;">
-        <button type="button" id="toggle-hide-checks" style="background: var(--btn-bg); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: background 0.15s;">Hiện check ẩn</button>
-      </div>
-      <div id="sections-list" class="hide-checkboxes" style="display: flex; flex-direction: column; gap: 6px; max-height: 185px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px; margin-top: 6px; cursor: default;">
-        <div style="font-size: 10px; color: var(--text-muted); text-align: center;">Mở trang erp.skyjet.vn để tải các mục</div>
-      </div>
-    </details>
-  </div>
-
-  <div style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px;">
-    <details id="details-custom-links" style="cursor: pointer;">
-      <summary style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none;">
-        🔗 Tự tạo phím tắt (Thêm mục mới)
-      </summary>
-      <div id="custom-links-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px; cursor: default;">
-        <input type="text" id="custom-title-input" placeholder="Tên mục (VD: Quản lý doanh số)" />
-        <input type="text" id="custom-url-input" placeholder="Đường dẫn URL trang" />
-        
-        <div id="icon-picker-container" style="margin-top: 2px; margin-bottom: 2px;">
-          <label style="font-size: 10.5px; font-weight: bold; color: var(--text-secondary); display: block; margin-bottom: 4px;">Chọn biểu tượng (CRM):</label>
-          <div id="icon-picker-grid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px; max-height: 80px; overflow-y: auto; cursor: default;"></div>
-        </div>
-
-        <button type="button" id="add-custom-btn" style="background: #38bdf8; color: #020617; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s;">Thêm phím tắt</button>
-        <div id="custom-links-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; margin-top: 4px; padding: 4px 0; border-top: 1px dashed var(--border);">
-          <div style="font-size: 10px; color: var(--text-muted); text-align: center;">Chưa có phím tắt tự tạo nào</div>
-        </div>
-      </div>
-    </details>
-  </div>
-
-  <!-- General Settings Section -->
-  <div id="general-settings-container" style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px;">
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <label for="dark-mode-checkbox" style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-        🌙 Chế độ tối (Dark Mode)
-      </label>
-      <input type="checkbox" id="dark-mode-checkbox" style="cursor: pointer; margin: 0;" />
+    <div style="font-size: 11.5px; line-height: 1.5; color: var(--text-secondary);">
+      <p style="margin: 0 0 8px 0; font-weight: bold; color: var(--text-primary); font-size: 12px;">Yêu cầu quyền riêng tư & dữ liệu</p>
+      Để hỗ trợ các tính năng tự động tra cứu nhanh và đồng bộ dữ liệu ERP, tiện ích này cần thu thập và xử lý:
+      <ul style="margin: 6px 0; padding-left: 16px; font-size: 11px; color: var(--text-muted); list-style-type: disc;">
+        <li style="margin-bottom: 4px;">Mã đơn hàng, PNR, số vé hiển thị trên các trang web Skyjet và FlightVN được cấp quyền.</li>
+        <li style="margin-bottom: 4px;">Lưu trữ cục bộ cấu hình hiển thị và phím tắt tự tạo.</li>
+        <li style="margin-bottom: 4px;">Đối chiếu mã vé máy bay/PNR với cơ sở dữ liệu Supabase được bảo mật của doanh nghiệp.</li>
+      </ul>
+      Chúng tôi cam kết bảo mật tuyệt đối dữ liệu và không chia sẻ cho bên thứ ba.
+    </div>
+    
+    <div style="display: flex; gap: 8px; margin-top: 6px;">
+      <button type="button" id="consent-decline-btn" class="btn" style="flex: 1; padding: 6px;">Từ chối</button>
+      <button type="button" id="consent-accept-btn" class="btn" style="flex: 1; padding: 6px; background: #0284c7; color: white; border-color: #0284c7;">Đồng ý</button>
     </div>
   </div>
 
-  <!-- SearchTransaction Split Description Section -->
-  <div id="search-transaction-container" style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: none;">
-    <div style="display: flex; align-items: center; justify-content: space-between;">
-      <label for="split-desc-checkbox" style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none; cursor: pointer;">
-        ✂️ Tách diễn giải (Số vé, Hành trình, Khách)
-      </label>
-      <input type="checkbox" id="split-desc-checkbox" style="cursor: pointer; margin: 0;" />
+  <div id="main-app-ui" style="display: none;">
+    <div class="header" style="justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div>
+          <h1 class="title">Skyjet ERP Helper</h1>
+          <div style="margin-top: 2px;">
+            <span id="ext-version" style="font-size: 10px; color: var(--text-muted); font-weight: 500;"></span>
+          </div>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+        <label class="switch-toggle" title="Bật/Tắt Extension Helper">
+          <input type="checkbox" id="extension-active-toggle" checked>
+          <span class="switch-slider"></span>
+        </label>
+        <button type="button" id="start-picker-btn" title="Chụp hình thẻ (Chụp Element)" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.15s; box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25); flex-shrink: 0; outline: none; padding: 0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Custom Shortcuts Grid Area (3x3, max 9 items) -->
+    <div id="custom-menu-container" style="padding-top: 4px; margin-top: 4px; display: none;">
+      <div id="custom-menu-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 6px;"></div>
+    </div>
+
+    <div id="settings-container" style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: none;">
+      <details id="details-settings" style="cursor: pointer;">
+        <summary style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none; display: flex; justify-content: space-between; align-items: center;">
+          <span>🛠️ Hiển thị & Sắp xếp vị trí (Kéo thả)</span>
+        </summary>
+        <div id="toggle-hide-checks-container" style="margin-top: 6px; display: flex; justify-content: flex-end;">
+          <button type="button" id="toggle-hide-checks" style="background: var(--btn-bg); color: var(--text-secondary); border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: background 0.15s;">Hiện check ẩn</button>
+        </div>
+        <div id="sections-list" class="hide-checkboxes" style="display: flex; flex-direction: column; gap: 6px; max-height: 185px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px; margin-top: 6px; cursor: default;">
+          <div style="font-size: 10px; color: var(--text-muted); text-align: center;">Mở trang erp.skyjet.vn để tải các mục</div>
+        </div>
+      </details>
+    </div>
+
+    <div style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px;">
+      <details id="details-custom-links" style="cursor: pointer;">
+        <summary style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none;">
+          🔗 Tự tạo phím tắt (Thêm mục mới)
+        </summary>
+        <div id="custom-links-container" style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px; cursor: default;">
+          <input type="text" id="custom-title-input" placeholder="Tên mục (VD: Quản lý doanh số)" />
+          <input type="text" id="custom-url-input" placeholder="Đường dẫn URL trang" />
+          
+          <div id="icon-picker-container" style="margin-top: 2px; margin-bottom: 2px;">
+            <label style="font-size: 10.5px; font-weight: bold; color: var(--text-secondary); display: block; margin-bottom: 4px;">Chọn biểu tượng (CRM):</label>
+            <div id="icon-picker-grid" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 4px; padding: 6px; max-height: 80px; overflow-y: auto; cursor: default;"></div>
+          </div>
+
+          <button type="button" id="add-custom-btn" style="background: #38bdf8; color: #020617; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s;">Thêm phím tắt</button>
+          <div id="custom-links-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 100px; overflow-y: auto; margin-top: 4px; padding: 4px 0; border-top: 1px dashed var(--border);">
+            <div style="font-size: 10px; color: var(--text-muted); text-align: center;">Chưa có phím tắt tự tạo nào</div>
+          </div>
+        </div>
+      </details>
+    </div>
+
+
+
+    <!-- SearchTransaction Split Description Section -->
+    <div id="search-transaction-container" style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: none;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <label for="split-desc-checkbox" style="font-size: 11px; font-weight: bold; color: var(--text-primary); user-select: none; cursor: pointer;">
+          ✂️ Tách diễn giải (Số vé, Hành trình, Khách)
+        </label>
+        <input type="checkbox" id="split-desc-checkbox" style="cursor: pointer; margin: 0;" />
+      </div>
+
     </div>
   </div>
 

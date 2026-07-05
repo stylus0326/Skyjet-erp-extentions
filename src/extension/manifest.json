@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Skyjet ERP Helper",
-  "version": "26.703.11",
+  "version": "26.704.105",
   "description": "Biến Mã đơn hàng trong bảng công nợ Skyjet ERP thành nút tìm kiếm nhanh chạy ngầm.",
   "permissions": [
     "activeTab",
@@ -42,6 +42,17 @@
         "inject.css"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://agent.skyjet.vn/*",
+        "http://agent.skyjet.vn/*"
+      ],
+      "js": [
+        "main-world.js"
+      ],
+      "run_at": "document_end",
+      "world": "MAIN"
     },
     {
       "matches": [

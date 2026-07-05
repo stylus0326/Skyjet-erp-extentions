@@ -21,9 +21,12 @@ export function TagInput({ tags, onChange, placeholder = "Add tag...", id, hideH
 
   const addTag = () => {
     const trimmed = inputValue.trim();
-    if (trimmed && !tags.includes(trimmed)) {
-      const newTags = [...tags, trimmed];
-      onChange(newTags);
+    if (trimmed) {
+      const parts = trimmed.split('/').map(p => p.trim()).filter(Boolean);
+      const uniqueParts = parts.filter(p => !tags.includes(p));
+      if (uniqueParts.length > 0) {
+        onChange([...tags, ...uniqueParts]);
+      }
       setInputValue('');
     }
   };

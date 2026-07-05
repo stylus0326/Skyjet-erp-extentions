@@ -1,37 +1,29 @@
 /* Skyjet ERP Helper - Stylesheet */
 
-/* Tạo kiểu dáng đẹp mắt cho nút click mã đơn hàng */
+/* Tạo kiểu dáng đẹp mắt cho nút click mã đơn hàng dưới dạng link chữ có gạch dưới */
 .skyjet-btn {
-  background-color: #17a2b8 !important;
-  color: #ffffff !important;
+  background: transparent !important;
+  color: #0284c7 !important;
   border: none !important;
-  padding: 3px 0 !important;
+  padding: 0 !important;
   font-size: 11px !important;
-  font-weight: 600 !important;
-  border-radius: 20px !important;
+  font-weight: 700 !important;
   cursor: pointer !important;
-  transition: all 0.2s ease-in-out !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12) !important;
-  font-family: inherit !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.3px !important;
-  width: 78px !important;
-  min-width: 78px !important;
-  box-sizing: border-box !important;
+  text-decoration: underline !important;
+  display: inline-block !important;
+  box-shadow: none !important;
+  width: auto !important;
+  min-width: auto !important;
 }
 
 .skyjet-btn:hover {
-  background-color: #138496 !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.18) !important;
+  color: #0369a1 !important;
+  background: transparent !important;
+  text-decoration: underline !important;
 }
 
 .skyjet-btn:active {
-  transform: translateY(0px) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  color: #0284c7 !important;
 }
 
 /* Spinner quay đều cho trạng thái Loading */
@@ -571,4 +563,62 @@
   height: 14px !important;
   display: inline-block !important;
   border-radius: 2px !important;
+}
+
+/* Áp dụng font-size 11px và font-weight 500 cho các bảng trên 3 trang yêu cầu */
+body.skyjet-custom-font-table table,
+body.skyjet-custom-font-table table td,
+body.skyjet-custom-font-table table th {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+/* Tô màu header bảng trên trang agent giống màu header erp */
+body.skyjet-agent-host table thead tr th,
+body.skyjet-agent-host table thead th {
+  background-color: #2a3f54 !important;
+  color: #ffffff !important;
+}
+
+/* Copy kiểu thiết kế table của ERP sang Agent */
+body.skyjet-agent-host table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+}
+
+body.skyjet-agent-host table th,
+body.skyjet-agent-host table td {
+  border: 1px solid #cbd5e1 !important;
+  padding: 6px 8px !important;
+  vertical-align: middle !important;
+}
+
+body.skyjet-agent-host table tbody tr:nth-of-type(odd) {
+  background-color: #f9f9f9 !important;
+}
+
+body.skyjet-agent-host table tbody tr:nth-of-type(even) {
+  background-color: #ffffff !important;
+}
+
+body.skyjet-agent-host table tbody tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Copy kiểu border cell bên agent sang erp (viền đầy đủ 4 cạnh cho từng ô) */
+.jambo_table,
+.jambo_table th,
+.jambo_table td {
+  border: 1px solid #cbd5e1 !important;
+  border-collapse: collapse !important;
+}
+
+/* Force visible for custom extension columns to prevent them from being hidden by parent page script index-matching */
+th[data-skyjet-channel-col="true"], td[data-skyjet-channel-col="true"],
+th[data-skyjet-type-col="true"], td[data-skyjet-type-col="true"],
+th[data-skyjet-time-col="true"], td[data-skyjet-time-col="true"],
+th[data-skyjet-fare-col="true"], td[data-skyjet-fare-col="true"] {
+  display: table-cell !important;
 }

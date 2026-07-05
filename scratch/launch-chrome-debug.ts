@@ -14,6 +14,7 @@ async function main() {
     args: [
       `--disable-extensions-except=${UNPACKED_DIR}`,
       `--load-extension=${UNPACKED_DIR}`,
+      `--user-data-dir=${path.resolve('scratch', 'puppeteer-user-data')}`,
       '--remote-debugging-port=9222',
       '--no-sandbox',
       '--disable-setuid-sandbox'
@@ -24,9 +25,8 @@ async function main() {
   
   const page = await browser.newPage();
   
-  // Navigate to local port 3000 where the app is running
-  console.log('Navigating to http://localhost:3000...');
-  await page.goto('http://localhost:3000');
+  console.log('Navigating to https://erp.skyjet.vn...');
+  await page.goto('https://erp.skyjet.vn');
   
   // Keep the process alive
   console.log('Browser is kept open. Press Ctrl+C to terminate.');

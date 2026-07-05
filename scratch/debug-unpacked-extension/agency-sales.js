@@ -82,8 +82,39 @@ function processAgencySalesTable() {
   });
 }
 
-// Tự động xoá cột "Mã KH" khỏi bảng tra cứu công nợ theo yêu cầu của người dùng
+function unmergeRowCells(row) {
+  if (!row) return;
+  const cells = Array.from(row.cells);
+  cells.forEach(cell => {
+    const colspan = parseInt(cell.getAttribute('colspan'), 10) || 1;
+    if (colspan > 1) {
+      cell.removeAttribute('colspan');
+      let currentRef = cell;
+      for (let i = 1; i < colspan; i++) {
+        const newCell = document.createElement(cell.tagName);
+        newCell.innerHTML = '';
+        row.insertBefore(newCell, currentRef.nextSibling);
+        currentRef = newCell;
+      }
+    }
+  });
+}
 
+function adjustTableColspansAndVisibility(table, hiddenIndices) {
+  const allRows = Array.from(table.querySelectorAll('thead tr, tbody tr, tfoot tr, tr'));
+  allRows.forEach(row => {
+    unmergeRowCells(row);
+    Array.from(row.cells).forEach((cell, idx) => {
+      if (hiddenIndices.has(idx)) {
+        cell.style.display = 'none';
+      } else {
+        cell.style.display = '';
+      }
+    });
+  });
+}
+
+// Tự động xoá cột "Mã KH" khỏi bảng tra cứu công nợ theo yêu cầu của người dùng
 function removeCustomerCodeColumn() {
   if (window.location.pathname.includes('/DaiLyArea/Daily/MemberList') || window.location.href.includes('DaiLyArea/Daily/MemberList')) {
     return;
@@ -100,30 +131,16 @@ function removeCustomerCodeColumn() {
       }
     }
     if (colIndex !== -1) {
-      const headRows = table.querySelectorAll('thead tr, tr:has(th)');
-      headRows.forEach(tr => {
-        if (tr.cells[colIndex]) {
-          tr.cells[colIndex].style.display = 'none';
-        }
-      });
-      const rows = table.querySelectorAll('tbody tr, tr');
-      rows.forEach(tr => {
-        if (tr.cells[colIndex] && tr.querySelector('td')) {
-          tr.cells[colIndex].style.display = 'none';
-        }
-      });
-      const footRows = table.querySelectorAll('tfoot tr');
-      footRows.forEach(tr => {
-        if (tr.cells[colIndex]) {
-          tr.cells[colIndex].style.display = 'none';
-        }
-      });
+      if (!table.skyjetHiddenIndices) {
+        table.skyjetHiddenIndices = new Set();
+      }
+      table.skyjetHiddenIndices.add(colIndex);
+      adjustTableColspansAndVisibility(table, table.skyjetHiddenIndices);
     }
   });
 }
 
 // Ẩn cột Ngày xuất nếu tất cả các dòng đều có Ngày xuất trùng với Ngày chứng từ (coi 1900/rỗng là bằng Ngày chứng từ)
-
 function hideDuplicateDates() {
   const tables = document.querySelectorAll('table');
   tables.forEach(table => {
@@ -169,39 +186,29 @@ function hideDuplicateDates() {
         }
       }
       
-      const displayVal = allIdentical ? 'none' : '';
+      if (!table.skyjetHiddenIndices) {
+        table.skyjetHiddenIndices = new Set();
+      }
       
-      // Ẩn/hiện tiêu đề cột
-      const headRows = table.querySelectorAll('thead tr, tr:has(th)');
-      headRows.forEach(tr => {
-        if (tr.cells[issueDateIdx]) {
-          tr.cells[issueDateIdx].style.display = displayVal;
-        }
-      });
-      
-      // Ẩn/hiện dữ liệu các dòng
-      rows.forEach(tr => {
-        const cells = tr.querySelectorAll('td');
-        if (cells.length > issueDateIdx) {
-          cells[issueDateIdx].style.display = displayVal;
-          // Nếu không ẩn, và ngày xuất là rỗng/1900, hiển thị bằng ngày chứng từ
-          if (!allIdentical && cells.length > docDateIdx) {
+      if (allIdentical) {
+        table.skyjetHiddenIndices.add(issueDateIdx);
+      } else {
+        table.skyjetHiddenIndices.delete(issueDateIdx);
+        
+        // Trả lại giá trị hiển thị cho ngày xuất nếu không ẩn
+        rows.forEach(tr => {
+          const cells = tr.querySelectorAll('td');
+          if (cells.length > issueDateIdx && cells.length > docDateIdx) {
             let i = cells[issueDateIdx].innerText.trim();
             if (!i || i === '01/01/1900' || i.includes('1900')) {
               const d = cells[docDateIdx].innerText.trim();
               cells[issueDateIdx].innerText = d;
             }
           }
-        }
-      });
+        });
+      }
       
-      // Ẩn/hiện dòng chân trang (tfoot)
-      const footRows = table.querySelectorAll('tfoot tr');
-      footRows.forEach(tr => {
-        if (tr.cells[issueDateIdx]) {
-          tr.cells[issueDateIdx].style.display = displayVal;
-        }
-      });
+      adjustTableColspansAndVisibility(table, table.skyjetHiddenIndices);
     }
   });
 }

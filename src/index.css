@@ -171,3 +171,108 @@ button.bg-zinc-100 svg {
 .hover\:text-white:hover {
   color: #0f172a !important;
 }
+
+/* ERP jambo_table styling for the Calculator tab */
+.skyjet-erp-table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  border: 1px solid #cbd5e1 !important;
+  background-color: #ffffff !important;
+  font-family: "Inter", sans-serif !important;
+}
+
+.skyjet-erp-table th {
+  background-color: #2a3f54 !important;
+  color: #ffffff !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border: 1px solid #cbd5e1 !important;
+  padding: 5px 6px !important;
+  white-space: nowrap !important;
+}
+
+.skyjet-erp-table td {
+  border: 1px solid #cbd5e1 !important;
+  padding: 5px 6px !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  vertical-align: middle !important;
+  color: #333333 !important;
+}
+
+.skyjet-erp-table tbody tr:nth-of-type(odd) {
+  background-color: #f9f9f9 !important;
+}
+
+.skyjet-erp-table tbody tr:nth-of-type(even) {
+  background-color: #ffffff !important;
+}
+
+.skyjet-erp-table tbody tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+.skyjet-erp-table tbody tr.bg-rose-refund {
+  background-color: #fef2f2 !important; /* light red/rose bg for refunds */
+}
+
+.skyjet-erp-table tbody tr.bg-rose-refund td {
+  color: #991b1b !important;
+}
+
+.skyjet-erp-table tbody tr.bg-amber-exchange {
+  background-color: #fffbeb !important; /* light amber/yellow bg for exchanges */
+}
+
+.skyjet-erp-table tbody tr.bg-amber-exchange td {
+  color: #92400e !important;
+}
+
+/* Footer values styling */
+.skyjet-erp-table tfoot td {
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  border: 1px solid #cbd5e1 !important;
+  padding: 5px 6px !important;
+  white-space: nowrap !important;
+}
+
+/* Fit widths of columns except the 11th column (Tên khách) */
+.skyjet-erp-table th,
+.skyjet-erp-table tbody td {
+  white-space: nowrap !important;
+  width: 1% !important;
+}
+
+.skyjet-erp-table th:nth-child(11),
+.skyjet-erp-table tbody td.skyjet-col-passenger,
+.skyjet-erp-table tbody td:nth-child(11) {
+  white-space: normal !important;
+  width: auto !important;
+  min-width: 150px !important;
+  max-width: 250px !important;
+}
+
+/* Reset all divs inside table cells to prevent background/color leakage from host page */
+.skyjet-erp-table td div {
+  background-color: transparent !important;
+  color: inherit !important;
+  border-color: inherit !important;
+}
+
+/* Specific styling for the flight segment group box */
+.skyjet-erp-table td .skyjet-segment-group {
+  background-color: #f8fafc !important; /* bg-zinc-50 */
+  border: 1px solid #cbd5e1 !important; /* border-zinc-200 */
+  border-radius: 4px !important;
+  padding: 2px 4px !important;
+  color: inherit !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+
+

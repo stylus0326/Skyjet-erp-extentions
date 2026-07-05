@@ -133,7 +133,7 @@ async function main() {
               created_at: new Date().toISOString(),
               ticket_number: '7382321383143',
               pnr_code: 'E6F77K',
-              ticket_type: 'Vé bán',
+              ticket_type: 'Vé',
               ticket_class: 'R',
               fare: 3741000,
               passenger_name: 'DONG MOI'
@@ -164,7 +164,7 @@ async function main() {
                 <tr>
                   <td>7382321383143</td>
                   <td>R</td>
-                  <td>Vé bán</td>
+                  <td>Vé</td>
                   <td>DONG MOI</td>
                 </tr>
                 <tr>
@@ -249,14 +249,14 @@ async function main() {
       '      <tr>' +
       '        <td>5</td>' +
       '        <td><div class="skyjet-btn"><span>E6F77K</span></div></td>' +
-      '        <td>Vé bán</td>' +
+      '        <td>Vé</td>' +
       '        <td>7382321383143 - VN SGNVNHUI - DONG MOI</td>' +
       '        <td>4,000,000</td>' +
       '      </tr>' +
       '      <tr>' +
       '        <td>6</td>' +
       '        <td><div class="skyjet-btn"><span>E6F77K</span></div></td>' +
-      '        <td>Vé bán</td>' +
+      '        <td>Vé</td>' +
       '        <td>7382321383143-H\u200b - VN SGNVNHUI - HOAN VE</td>' +
       '        <td>-500,000</td>' +
       '      </tr>' +
@@ -337,7 +337,7 @@ async function main() {
                   created_at: new Date().toISOString(),
                   ticket_number: '7382321383143',
                   pnr_code: 'E6F77K',
-                  ticket_type: 'Vé bán',
+                  ticket_type: 'Vé',
                   ticket_class: 'R',
                   fare: 3741000,
                   passenger_name: 'DONG MOI',
@@ -507,8 +507,8 @@ async function main() {
   if (row5Cells[soVeIndexAfter] !== '7382321383143') {
     throw new Error('Dòng 5: số vé không đúng: ' + row5Cells[soVeIndexAfter]);
   }
-  if (row5Cells[loaiVeIndexAfter] !== 'Vé bán') {
-    throw new Error('Dòng 5: loại vé không đúng, mong đợi "Vé bán", thực tế: ' + row5Cells[loaiVeIndexAfter]);
+  if (row5Cells[loaiVeIndexAfter] !== 'Vé') {
+    throw new Error('Dòng 5: loại vé không đúng, mong đợi "Vé", thực tế: ' + row5Cells[loaiVeIndexAfter]);
   }
   if (row5Cells[giaVeIndex] !== '3.741.000') {
     throw new Error('Dòng 5: Giá vé không đúng, mong đợi "3.741.000", thực tế: ' + row5Cells[giaVeIndex]);
@@ -523,6 +523,12 @@ async function main() {
   }
   if (row6Cells[giaVeIndex] !== '-') {
     throw new Error('Dòng 6: Giá vé không đúng, mong đợi "-", thực tế: ' + row6Cells[giaVeIndex]);
+  }
+
+  const tableEl = await page.$('#tableContent');
+  if (tableEl) {
+    await tableEl.screenshot({ path: 'C:/Users/H.I.N/.gemini/antigravity/brain/c6b23d0f-c230-4ce2-8a07-243753916c31/debt_table_screenshot.png' });
+    console.log('[Puppeteer Screenshot] Saved debt table screenshot to artifact directory.');
   }
 
     console.log('Hủy kích hoạt Tách diễn giải (skyjet_split_desc = false)...');

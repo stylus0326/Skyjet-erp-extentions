@@ -920,7 +920,7 @@ Goals survive context resets:
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **forgewright** (17857 symbols, 23306 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Skyjet-erp-extentions** (21208 symbols, 27578 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -944,10 +944,10 @@ This project is indexed by GitNexus as **forgewright** (17857 symbols, 23306 rel
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/forgewright/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/forgewright/clusters` | All functional areas |
-| `gitnexus://repo/forgewright/processes` | All execution flows |
-| `gitnexus://repo/forgewright/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/Skyjet-erp-extentions/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/Skyjet-erp-extentions/clusters` | All functional areas |
+| `gitnexus://repo/Skyjet-erp-extentions/processes` | All execution flows |
+| `gitnexus://repo/Skyjet-erp-extentions/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

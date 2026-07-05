@@ -4,6 +4,7 @@ import { CampaignDetail, Campaign } from '../types';
 import { RelationSelector } from './RelationSelector';
 import { TagInput } from './TagInput';
 import { TagDropdown } from './TagDropdown';
+import { CustomSelect } from './CustomSelect';
 import { 
   Search, Plus, Edit2, Trash2, AlertCircle, 
   X, Check, ArrowUpDown, RefreshCw, Layers, Percent, Tag,
@@ -393,8 +394,11 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
     setIsEditMode(false);
     setAutoGenerateId(true);
     setFormId('');
-    setFormCampaignId(campaignId);
-    setFormBookingClass(bookingClass || []);
+    const initialClasses = (bookingClass || [])
+      .flatMap(c => c.split('/'))
+      .map(c => c.trim())
+      .filter(Boolean);
+    setFormBookingClass(initialClasses);
     setFormDiscountBase('FARE');
     setFormDiscountPercentage('');
     setFormAmount('');
@@ -439,7 +443,11 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
     setAutoGenerateId(false);
     setFormId(detail.id.toString());
     setFormCampaignId(detail.campaign_id);
-    setFormBookingClass(detail.booking_class || []);
+    const initialClasses = (detail.booking_class || [])
+      .flatMap(c => c.split('/'))
+      .map(c => c.trim())
+      .filter(Boolean);
+    setFormBookingClass(initialClasses);
     setFormDiscountBase(detail.discount_base || 'FARE');
     setFormDiscountPercentage(detail.discount_percentage !== undefined && detail.discount_percentage !== null ? detail.discount_percentage.toString() : '');
     setFormAmount(detail.amount !== null && detail.amount !== undefined ? detail.amount.toString() : '');
@@ -472,12 +480,13 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
     ).filter(Boolean) as string[];
     const cols = colTags.length > 0 ? colTags : ['Mặc định'];
 
-    // Extract unique rows
+    // Extract unique rows (group them as they were, but split elements by / and join with comma so TagInput can parse them)
     const uniqueRows = Array.from(
       new Set(
         campaignDetails.map(d => {
           if (!d.booking_class || d.booking_class.length === 0) return 'Tất cả';
-          return [...d.booking_class].sort().join('/');
+          const classes = d.booking_class.flatMap(c => c.split('/')).map(c => c.trim().toUpperCase()).filter(Boolean);
+          return [...new Set(classes)].sort().join(', ');
         })
       )
     ) as string[];
@@ -525,7 +534,11 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       for (let c = 1; c < colsCount; c++) {
         const colTagStr = cols[c - 1];
         const detail = campaignDetails.find(d => {
-          const dKey = !d.booking_class || d.booking_class.length === 0 ? 'Tất cả' : [...d.booking_class].sort().join('/');
+          let dKey = 'Tất cả';
+          if (d.booking_class && d.booking_class.length > 0) {
+            const classes = d.booking_class.flatMap(c => c.split('/')).map(c => c.trim().toUpperCase()).filter(Boolean);
+            dKey = [...new Set(classes)].sort().join(', ');
+          }
           const matchesRow = dKey === rowKey;
           const matchesCol = colTagStr === 'Mặc định'
             ? (!d.groups_tag || d.groups_tag.length === 0)
@@ -559,6 +572,30 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
     setMatrixGrid(grid);
     setIsModalOpen(true);
+  };
+
+  const deleteMatrixColumn = (colIndex: number) => {
+    setMatrixGrid(prev => {
+      return prev.map(row => row.filter((_, idx) => idx !== colIndex));
+    });
+    setMatrixColIndices(prev => {
+      const nextMap: {[key: number]: string} = {};
+      Object.entries(prev).forEach(([keyStr, val]) => {
+        const key = parseInt(keyStr, 10);
+        if (key < colIndex) {
+          nextMap[key] = val as string;
+        } else if (key > colIndex) {
+          nextMap[key - 1] = val as string;
+        }
+      });
+      return nextMap;
+    });
+    setMatrixCols(prev => prev - 1);
+  };
+
+  const deleteMatrixRow = (rowIndex: number) => {
+    setMatrixGrid(prev => prev.filter((_, idx) => idx !== rowIndex));
+    setMatrixRows(prev => prev - 1);
   };
 
   const openEditColumnTagsModal = (colTag: string, groupDetails: CampaignDetail[]) => {
@@ -1620,7 +1657,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                         readOnly
                                         required
                                         value={matrixGrid[0]?.[cIdx] || ''}
-                                        className="w-full px-1.5 py-1 text-center border border-zinc-800 rounded bg-zinc-950 text-zinc-100 text-xs focus:outline-none cursor-default font-mono pr-6"
+                                        className="w-full px-1.5 py-1 text-center border border-zinc-800 rounded bg-zinc-950 text-zinc-100 text-xs focus:outline-none cursor-default font-mono pr-12"
                                         title="Bấm nút + bên cạnh để chọn tag"
                                       />
                                       <button
@@ -1636,9 +1673,17 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                           setMatrixOperator('<->');
                                           setActiveHeaderEditCol(cIdx);
                                         }}
-                                        className="absolute right-2 p-0.5 rounded hover:bg-zinc-800 text-emerald-400 hover:text-emerald-350 transition-colors focus:outline-none cursor-pointer"
+                                        className="absolute right-7 p-0.5 rounded hover:bg-zinc-800 text-emerald-400 hover:text-emerald-350 transition-colors focus:outline-none cursor-pointer"
                                       >
                                         <Plus className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => deleteMatrixColumn(cIdx)}
+                                        className="absolute right-1.5 p-0.5 rounded hover:bg-zinc-800 text-rose-500 hover:text-rose-400 transition-colors focus:outline-none cursor-pointer"
+                                        title="Xóa cột"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                     <div className="flex items-center gap-1 bg-zinc-950/45 px-1 py-0.5 rounded border border-zinc-800/80">
@@ -1673,19 +1718,31 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                       ? cellVal.split(/[\s,;]+/).map(t => t.trim().toUpperCase()).filter(Boolean)
                                       : [];
                                     return (
-                                      <td key={`c-${r}-${cIdx}`} className="p-1 border border-zinc-800 bg-zinc-900/25 min-w-[180px]">
-                                        <TagInput
-                                          tags={tagList}
-                                          onChange={(newTags) => {
-                                            setMatrixGrid(prev => {
-                                              const copy = prev.map(row => [...row]);
-                                              copy[r][0] = newTags.join(', ');
-                                              return copy;
-                                            });
-                                          }}
-                                          placeholder="Hạng chỗ..."
-                                          hideHelp
-                                        />
+                                      <td key={`c-${r}-${cIdx}`} className="p-1 border border-zinc-800 bg-zinc-900/25 min-w-[200px]">
+                                        <div className="flex items-center gap-1">
+                                          <div className="flex-1">
+                                            <TagInput
+                                              tags={tagList}
+                                              onChange={(newTags) => {
+                                                setMatrixGrid(prev => {
+                                                  const copy = prev.map(row => [...row]);
+                                                  copy[r][0] = newTags.join(', ');
+                                                  return copy;
+                                                });
+                                              }}
+                                              placeholder="Hạng chỗ..."
+                                              hideHelp
+                                            />
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => deleteMatrixRow(r)}
+                                            className="p-1.5 text-rose-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors focus:outline-none cursor-pointer flex-shrink-0"
+                                            title="Xóa dòng"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       </td>
                                     );
                                   }
@@ -1788,14 +1845,14 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                               {/* Operator */}
                               <div>
                                 <label className="block text-[11px] font-bold text-zinc-400 mb-1">Chiều vận chuyển *</label>
-                                <select
+                                <CustomSelect
                                   value={matrixOperator}
-                                  onChange={(e) => setMatrixOperator(e.target.value)}
-                                  className="block w-full px-2 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-950 text-xs focus:outline-none focus:ring-1 focus:ring-zinc-700 cursor-pointer"
-                                >
-                                  <option value="<->">Khứ hồi / Hai chiều (&lt;-&gt;)</option>
-                                  <option value="->">Một chiều (-&gt;)</option>
-                                </select>
+                                  onChange={setMatrixOperator}
+                                  options={[
+                                    { value: '<->', label: 'Khứ hồi / Hai chiều (<->)' },
+                                    { value: '->', label: 'Một chiều (->)' }
+                                  ]}
+                                />
                               </div>
 
                               {/* Tag B */}
@@ -1819,7 +1876,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                   }
                                   const newTag = `${matrixTagA} ${matrixOperator} ${matrixTagB}`;
                                   if (matrixActiveTags.includes(newTag)) {
-                                    showToast('Thẻ nhóm này đã tồn tại trong danh sách chọn!', 'warning');
+                                    showToast('Thẻ nhóm này đã tồn tại trong danh sách chọn!', 'error');
                                     return;
                                   }
                                   setMatrixActiveTags([...matrixActiveTags, newTag]);

@@ -6,6 +6,9 @@ import {
   X, Check, ArrowUpDown, ChevronDown, RefreshCw, FileSpreadsheet
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { TagDropdown } from './TagDropdown';
+import { CustomSelect } from './CustomSelect';
+import { CustomDatePicker } from './CustomDatePicker';
 
 export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -43,6 +46,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
   const [formTicket, setFormTicket] = useState<boolean>(false);
   const [airportTags, setAirportTags] = useState<string[]>([]);
   const [airportIatas, setAirportIatas] = useState<string[]>([]);
+  const [airlinesList, setAirlinesList] = useState<string[]>(['VN', 'VJ', 'QH', '9G']);
 
   // Status message state
   const [toast, setToast] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -50,6 +54,21 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setToast({ text, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const fetchAirlines = async () => {
+    try {
+      const { data, error: err } = await supabase.from('airlines').select('iata_code').order('iata_code');
+      if (err) {
+        console.error('Error fetching airlines:', err);
+        return;
+      }
+      if (data && data.length > 0) {
+        setAirlinesList(data.map((row: any) => row.iata_code));
+      }
+    } catch (err) {
+      console.error('Error fetching airlines:', err);
+    }
   };
 
   const fetchAirportTags = async () => {
@@ -114,6 +133,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
   useEffect(() => {
     fetchCampaigns();
     fetchAirportTags();
+    fetchAirlines();
   }, []);
 
   const handleSort = (field: keyof Campaign) => {
@@ -127,6 +147,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
 
   const openAddModal = () => {
     fetchAirportTags();
+    fetchAirlines();
     setIsEditMode(false);
     setAutoGenerateId(true);
     setFormId('');
@@ -146,6 +167,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
 
   const openEditModal = (campaign: Campaign) => {
     fetchAirportTags();
+    fetchAirlines();
     setIsEditMode(true);
     setAutoGenerateId(false);
     setFormId(campaign.id.toString());
@@ -578,7 +600,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-zinc-900 rounded-2xl w-full max-w-xl shadow-2xl border border-zinc-800 overflow-hidden my-8 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 rounded-2xl w-full max-w-xl shadow-2xl border border-zinc-800 overflow-visible my-8 animate-in fade-in duration-200">
 
 
             {/* Modal Body */}
@@ -600,97 +622,59 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Mã Hãng bay (Tối đa 2 ký tự)</label>
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: VN, VJ"
-                    maxLength={2}
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Hãng bay *</label>
+                  <CustomSelect
                     value={formCarrier}
-                    onChange={(e) => setFormCarrier(e.target.value.toUpperCase())}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-700 font-mono"
+                    onChange={setFormCarrier}
+                    placeholder="— Chọn Hãng bay —"
+                    options={airlinesList.map(iata => ({ value: iata, label: iata }))}
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Thẻ loại trừ đầu tiên</label>
-                  {(() => {
-                    const isIataLike = (val: string) => /^[A-Za-z]{3}$/.test(val.trim());
-                    const displayIatas = Array.from(new Set([
-                      ...airportIatas,
-                      ...(formExcludedFirstTag && isIataLike(formExcludedFirstTag) ? [formExcludedFirstTag.toUpperCase()] : [])
-                    ])).sort();
-                    const displayTags = Array.from(new Set([
-                      ...airportTags,
-                      ...(formExcludedFirstTag && !isIataLike(formExcludedFirstTag) ? [formExcludedFirstTag] : [])
-                    ])).sort();
-
-                    return (
-                      <select
-                        value={formExcludedFirstTag}
-                        onChange={(e) => setFormExcludedFirstTag(e.target.value)}
-                        className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700 cursor-pointer"
-                      >
-                        <option value="">— Không chọn (Không loại trừ) —</option>
-                        {displayIatas.length > 0 && (
-                          <optgroup label="Mã Sân bay (IATA / Giống IATA)">
-                            {displayIatas.map((iata) => (
-                              <option key={iata} value={iata}>
-                                {iata}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {displayTags.length > 0 && (
-                          <optgroup label="Thẻ Sân bay khác (Airport Tags)">
-                            {displayTags.map((tag) => (
-                              <option key={tag} value={tag}>
-                                {tag}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-                    );
-                  })()}
+                  <TagDropdown
+                    value={formExcludedFirstTag}
+                    onChange={setFormExcludedFirstTag}
+                    airportIatas={airportIatas}
+                    airportTags={airportTags}
+                    placeholder="— Không chọn (Không loại trừ) —"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Hiệu lực Từ ngày</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={formValidFrom}
-                    onChange={(e) => setFormValidFrom(e.target.value)}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                    onChange={setFormValidFrom}
+                    quarterType="start"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Hiệu lực Đến ngày</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={formValidTo}
-                    onChange={(e) => setFormValidTo(e.target.value)}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                    onChange={setFormValidTo}
+                    quarterType="end"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Khởi hành Từ ngày</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={formDepartureDateFrom}
-                    onChange={(e) => setFormDepartureDateFrom(e.target.value)}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                    onChange={setFormDepartureDateFrom}
+                    quarterType="start"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Khởi hành Đến ngày</label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={formDepartureDateTo}
-                    onChange={(e) => setFormDepartureDateTo(e.target.value)}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700"
+                    onChange={setFormDepartureDateTo}
+                    quarterType="end"
                   />
                 </div>
 
@@ -718,27 +702,27 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">Kênh *</label>
-                  <select
+                  <CustomSelect
                     value={formChannel}
-                    onChange={(e) => setFormChannel(e.target.value as 'PARTNER' | 'FLIGHTVN' | 'ALL')}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700 cursor-pointer"
-                  >
-                    <option value="ALL">ALL (Mặc định)</option>
-                    <option value="PARTNER">PARTNER</option>
-                    <option value="FLIGHTVN">FLIGHTVN</option>
-                  </select>
+                    onChange={(val) => setFormChannel(val)}
+                    options={[
+                      { value: 'ALL', label: 'ALL (Mặc định)' },
+                      { value: 'PARTNER', label: 'PARTNER' },
+                      { value: 'FLIGHTVN', label: 'FLIGHTVN' }
+                    ]}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 mb-1">CK theo *</label>
-                  <select
-                    value={formTicket ? 'true' : 'false'}
-                    onChange={(e) => setFormTicket(e.target.value === 'true')}
-                    className="block w-full px-3 py-2 border border-zinc-800 rounded-lg text-zinc-100 bg-zinc-900 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-700 cursor-pointer"
-                  >
-                    <option value="false">Chặng (Mặc định)</option>
-                    <option value="true">Vé</option>
-                  </select>
+                  <CustomSelect
+                    value={formTicket}
+                    onChange={(val) => setFormTicket(val)}
+                    options={[
+                      { value: false, label: 'Chặng (Mặc định)' },
+                      { value: true, label: 'Vé' }
+                    ]}
+                  />
                 </div>
               </div>
 

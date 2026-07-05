@@ -42,6 +42,7 @@ const observer = new MutationObserver((mutations) => {
       if (typeof shortenDocumentPrefix === 'function') shortenDocumentPrefix();
       if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
       if (typeof handleSplitDescription === 'function') handleSplitDescription();
+      if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
     }, 150);
   }
 });
@@ -49,10 +50,10 @@ const observer = new MutationObserver((mutations) => {
 // Chạy lần đầu tiên khi trang web được tải xong
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initSkyjetHelper, 0);
+    setTimeout(checkConsentAndInit, 0);
   });
 } else {
-  setTimeout(initSkyjetHelper, 0);
+  setTimeout(checkConsentAndInit, 0);
 }
 
 
@@ -60,9 +61,22 @@ function initSkyjetHelper() {
   if (window.skyjetHelperInitialized) return;
   window.skyjetHelperInitialized = true;
 
-  if (window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('flightvn.com')) {
+  const path = window.location.pathname.toLowerCase();
+  if (
+    path.includes('/agentarea/agent/searchtransaction') ||
+    path.includes('/transaction/searchtransaction') ||
+    path.includes('/orderreportarea/orderreport/searchallorder')
+  ) {
+    document.body.classList.add('skyjet-custom-font-table');
+  }
+
+  if (window.location.hostname.includes('agent.skyjet.vn')) {
+    document.body.classList.add('skyjet-agent-host');
+  }
+
+  if (window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('agent.skyjet.vn') || window.location.hostname.includes('flightvn.com')) {
     const isHomepage = window.location.pathname === '/' || window.location.pathname === '';
-    const cameFromLogin = document.referrer && document.referrer.includes('/LoginArea/Login/Index');
+    const cameFromLogin = document.referrer && (document.referrer.includes('/LoginArea/Login/Index') || document.referrer.includes('/Account/Login'));
     
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
       if ((isHomepage && cameFromLogin) || safeGetSession('skyjet_session_config_refreshed') !== 'true') {
@@ -116,6 +130,8 @@ function initSkyjetHelper() {
   if (typeof shortenDocumentPrefix === 'function') shortenDocumentPrefix();
   if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
   if (typeof handleSplitDescription === 'function') handleSplitDescription();
+  if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
+  if (typeof handleInvoiceRequestCreatePage === 'function') handleInvoiceRequestCreatePage();
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     applyVisibilitySettings();
@@ -136,6 +152,7 @@ function initSkyjetHelper() {
     if (typeof shortenDocumentPrefix === 'function') shortenDocumentPrefix();
     if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
     if (typeof handleSplitDescription === 'function') handleSplitDescription();
+    if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
     if (typeof applyVisibilitySettings === 'function') {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         applyVisibilitySettings();
@@ -210,10 +227,38 @@ function startSkyjetElementPicker() {
   }
   
   document.body.style.cursor = 'crosshair';
+
+  // Create temporary transparent cover masks for all visible iframes
+  const iframeMasks = [];
+  const iframes = document.querySelectorAll('iframe');
+  iframes.forEach((iframe) => {
+    const rect = iframe.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      const mask = document.createElement('div');
+      mask.className = 'skyjet-picker-iframe-mask';
+      mask.style.cssText = `
+        position: fixed;
+        left: ${rect.left}px;
+        top: ${rect.top}px;
+        width: ${rect.width}px;
+        height: ${rect.height}px;
+        z-index: 2147483646;
+        background: transparent;
+        cursor: crosshair;
+      `;
+      document.body.appendChild(mask);
+      iframeMasks.push(mask);
+    }
+  });
   
   const onMouseMove = (e) => {
     e.stopPropagation();
+    
+    // Temporarily hide masks so document.elementFromPoint can hit the underlying iframe
+    iframeMasks.forEach(mask => mask.style.display = 'none');
     const el = document.elementFromPoint(e.clientX, e.clientY);
+    iframeMasks.forEach(mask => mask.style.display = 'block');
+    
     if (!el || el === hoverOverlay || el === document.body || el === document.documentElement) return;
     
     let target = el;
@@ -259,6 +304,11 @@ function startSkyjetElementPicker() {
     document.removeEventListener('mousemove', onMouseMove, true);
     document.removeEventListener('click', onClick, true);
     document.removeEventListener('keydown', onKeyDown, true);
+    
+    // Remove all temporary iframe masks
+    iframeMasks.forEach(mask => {
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+    });
   }
   
   document.addEventListener('mousemove', onMouseMove, true);
@@ -600,6 +650,7 @@ function cropImageAndDownload(dataUrl, rect, devicePixelRatio) {
 }
 
 function showImagePreviewModal(croppedDataUrl) {
+  window.showImagePreviewModal = showImagePreviewModal;
   let overlay = document.getElementById('skyjet-preview-overlay');
   if (overlay) overlay.remove();
   
@@ -943,17 +994,9 @@ function applyVisibilitySettings() {
     if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
     if (!chrome.runtime || !chrome.runtime.id) return;
     
-    chrome.storage.local.get(['hiddenSections', 'sectionOrder', 'customShortcuts', 'skyjet_hide_nav', 'skyjet_dark_mode'], (result) => {
+    chrome.storage.local.get(['hiddenSections', 'sectionOrder', 'customShortcuts', 'skyjet_hide_nav'], (result) => {
       if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) return;
       if (chrome.runtime.lastError) return;
-
-      if (result.skyjet_dark_mode === true) {
-        document.documentElement.classList.add('skyjet-dark-mode');
-        document.body.classList.add('skyjet-dark-mode');
-      } else {
-        document.documentElement.classList.remove('skyjet-dark-mode');
-        document.body.classList.remove('skyjet-dark-mode');
-      }
       
       if (result.skyjet_hide_nav === true) {
         chrome.storage.local.remove('skyjet_hide_nav');
@@ -969,61 +1012,8 @@ function applyVisibilitySettings() {
       const sectionOrder = result.sectionOrder || [];
       const customShortcuts = result.customShortcuts || [];
 
-      // 1. Xóa phím tắt tự tạo cũ để tránh lặp
+      // 1. Xóa phím tắt tự tạo cũ nếu có để dọn dẹp sạch sẽ
       document.querySelectorAll('.skyjet-custom-shortcut').forEach(el => el.remove());
-
-      // 2. Tìm một mục gốc làm template để nhân bản
-      const rowDivsBefore = Array.from(document.querySelectorAll('.row > div'));
-      const templateDiv = rowDivsBefore.find(div => {
-        const title = getStableTitle(div);
-        return title !== null && !div.classList.contains('skyjet-custom-shortcut');
-      });
-
-      if (templateDiv && customShortcuts.length > 0) {
-        const parent = templateDiv.parentNode;
-        customShortcuts.forEach(sc => {
-          const clone = templateDiv.cloneNode(true);
-          clone.classList.add('skyjet-custom-shortcut');
-          clone.dataset.title = sc.title;
-
-          // Cập nhật tất cả thẻ a dẫn đến URL tự cấu hình
-          const links = clone.querySelectorAll('a');
-          links.forEach(a => {
-            let targetUrl = sc.url;
-            if (targetUrl.includes('?')) {
-              targetUrl += '&skyjet_hide_nav=true';
-            } else {
-              targetUrl += '?skyjet_hide_nav=true';
-            }
-            a.href = targetUrl;
-            a.addEventListener('click', () => {
-              safeSetSession('skyjet_hide_nav', 'true');
-              collapseLeftSidebar();
-            });
-          });
-
-          // Cập nhật text tiêu đề trong thẻ con
-          const origTitle = getStableTitle(templateDiv);
-          const headerElements = clone.querySelectorAll('h3, h4, h5, p, span, div');
-          headerElements.forEach(el => {
-            if (el.children.length === 0) {
-              if (el.innerText.includes(origTitle)) {
-                el.innerText = el.innerText.replace(origTitle, sc.title);
-              } else if (el.innerText.trim() !== '') {
-                el.innerText = sc.title;
-              }
-            }
-          });
-
-          // Ẩn badge đếm số lượng nếu có
-          const countEl = clone.querySelector('.count, .badge, .label');
-          if (countEl) {
-            countEl.style.display = 'none';
-          }
-
-          parent.appendChild(clone);
-        });
-      }
 
       // 3. Quét lại toàn bộ các mục (gồm cả phím tắt tự tạo mới)
       const rowDivs = Array.from(document.querySelectorAll('.row > div'));
@@ -1129,4 +1119,98 @@ function moveColumnNextTo(table, isTargetCol, isAnchorCol) {
       }
     });
   }
+}
+
+function checkConsentAndInit() {
+  const isMatchHost = window.location.hostname.includes('erp.skyjet.vn') || window.location.hostname.includes('agent.skyjet.vn') || window.location.hostname.includes('flightvn.com');
+  if (!isMatchHost) return;
+
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['skyjet_user_consent', 'extensionDisabled'], (data) => {
+      if (data && data.extensionDisabled === true) {
+        console.log('[Skyjet Helper] Extension is disabled via popup toggle.');
+        const overlay = document.getElementById('skyjet-consent-overlay');
+        if (overlay) overlay.remove();
+        return;
+      }
+      if (data && data.skyjet_user_consent === true) {
+        initSkyjetHelper();
+      } else {
+        showConsentOverlay();
+      }
+    });
+  } else {
+    initSkyjetHelper();
+  }
+}
+
+function showConsentOverlay() {
+  if (document.getElementById('skyjet-consent-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'skyjet-consent-overlay';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); z-index: 999999; display: flex; align-items: center; justify-content: center; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;';
+
+  const card = document.createElement('div');
+  card.style.cssText = 'background-color: #ffffff; color: #0f172a; width: 90%; max-width: 480px; padding: 24px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; box-sizing: border-box;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px;';
+
+  const logo = document.createElement('div');
+  logo.innerText = 'SJ';
+  logo.style.cssText = 'background: #0284c7; color: #ffffff; font-weight: 800; border-radius: 6px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;';
+
+  const title = document.createElement('div');
+  title.innerHTML = '<h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; line-height: 1.2;">Skyjet ERP Helper</h3><span style="font-size: 11px; color: #64748b; font-weight: 500;">Thông báo quyền riêng tư & dữ liệu</span>';
+
+  header.appendChild(logo);
+  header.appendChild(title);
+
+  const content = document.createElement('div');
+  content.style.cssText = 'font-size: 13px; line-height: 1.6; color: #334155; margin-bottom: 24px; text-align: left;';
+  content.innerHTML = '<p style="margin: 0 0 12px 0; font-weight: 600; color: #0f172a;">Tiện ích cần sự đồng ý của bạn để hoạt động:</p><ul style="margin: 0 0 16px 0; padding-left: 20px; list-style-type: disc;"><li style="margin-bottom: 6px;"><b>Đọc nội dung trang web:</b> Nhận diện mã đơn hàng, PNR, số vé hiển thị trên trang này để tạo phím tắt tra cứu nhanh.</li><li style="margin-bottom: 6px;"><b>Lưu trữ cấu hình cục bộ:</b> Lưu các cài đặt hiển thị, chiến dịch và chính sách trên thiết bị của bạn.</li><li style="margin-bottom: 6px;"><b>Truyền tải dữ liệu an toàn:</b> Gửi mã vé hoặc PNR để đối chiếu với cơ sở dữ liệu Supabase được cấp quyền của doanh nghiệp (không lưu trữ thông tin nhạy cảm bên ngoài).</li></ul><p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.4;">Chúng tôi cam kết bảo mật thông tin và KHÔNG chia sẻ dữ liệu của bạn cho bất kỳ bên thứ ba nào. Bạn có thể thay đổi tùy chọn này bất cứ lúc nào trong cài đặt tiện ích.</p>';
+
+  const actions = document.createElement('div');
+  actions.style.cssText = 'display: flex; justify-content: flex-end; gap: 12px;';
+
+  const declineBtn = document.createElement('button');
+  declineBtn.innerText = 'Từ chối';
+  declineBtn.style.cssText = 'padding: 8px 16px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #ffffff; color: #334155; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.15s; outline: none;';
+  declineBtn.onmouseover = () => declineBtn.style.backgroundColor = '#f8fafc';
+  declineBtn.onmouseout = () => declineBtn.style.backgroundColor = '#ffffff';
+  declineBtn.onclick = () => {
+    overlay.remove();
+  };
+
+  const acceptBtn = document.createElement('button');
+  acceptBtn.innerText = 'Tôi đồng ý';
+  acceptBtn.style.cssText = 'padding: 8px 16px; border-radius: 6px; border: none; background-color: #0284c7; color: #ffffff; font-size: 13px; font-weight: 600; cursor: pointer; transition: background-color 0.15s; outline: none;';
+  acceptBtn.onmouseover = () => acceptBtn.style.backgroundColor = '#0369a1';
+  acceptBtn.onmouseout = () => acceptBtn.style.backgroundColor = '#0284c7';
+  acceptBtn.onclick = () => {
+    chrome.storage.local.set({ skyjet_user_consent: true }, () => {
+      overlay.remove();
+      initSkyjetHelper();
+    });
+  };
+
+  actions.appendChild(declineBtn);
+  actions.appendChild(acceptBtn);
+
+  card.appendChild(header);
+  card.appendChild(content);
+  card.appendChild(actions);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.skyjet_user_consent && changes.skyjet_user_consent.newValue === true) {
+      const overlay = document.getElementById('skyjet-consent-overlay');
+      if (overlay) overlay.remove();
+      initSkyjetHelper();
+    }
+  });
 }

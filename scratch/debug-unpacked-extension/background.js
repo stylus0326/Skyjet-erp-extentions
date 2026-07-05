@@ -12,15 +12,149 @@ function isValidField(val) {
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === 'capture_tab_rect') {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-      if (chrome.runtime.lastError) {
-        console.error('Lỗi captureVisibleTab: ', chrome.runtime.lastError);
-        sendResponse({ success: false, error: chrome.runtime.lastError.message });
-      } else {
-        sendResponse({ success: true, dataUrl: dataUrl });
+  if (message.action === 'check_flightvn_login') {
+    const handleCheckLogin = async () => {
+      let ruleApplied = false;
+      try {
+        const cookieMap = new Map();
+        try {
+          const cookiesAll = await chrome.cookies.getAll({ domain: 'flightvn.com' });
+          if (cookiesAll && cookiesAll.length > 0) {
+            cookiesAll.forEach(c => cookieMap.set(c.name, c.value));
+          }
+        } catch (e) {
+          console.warn('[FlightVN] Lỗi lấy cookie:', e);
+        }
+        try {
+          const cookiesPart = await chrome.cookies.getAll({ domain: 'flightvn.com', partitionKey: {} });
+          if (cookiesPart && cookiesPart.length > 0) {
+            cookiesPart.forEach(c => cookieMap.set(c.name, c.value));
+          }
+        } catch (e) {
+          console.warn('[FlightVN] Lỗi lấy cookie partitioned:', e);
+        }
+
+        if (cookieMap.size > 0) {
+          const rawCookieString = Array.from(cookieMap.entries()).map(([name, value]) => name + '=' + value).join('; ');
+          await chrome.declarativeNetRequest.updateSessionRules({
+            removeRuleIds: [999],
+            addRules: [{
+              id: 999,
+              priority: 1,
+              action: {
+                type: 'modifyHeaders',
+                requestHeaders: [{
+                  header: 'Cookie',
+                  operation: 'set',
+                  value: rawCookieString
+                }]
+              },
+              condition: {
+                urlFilter: 'flightvn.com/Booking/ImportBooking',
+                resourceTypes: ['xmlhttprequest', 'other']
+              }
+            }]
+          });
+          ruleApplied = true;
+        }
+      } catch (cookieErr) {
+        console.error('[FlightVN] Lỗi lấy cookie hoặc áp dụng netRequest rule:', cookieErr);
       }
-    });
+
+      let response;
+      try {
+        response = await fetch('https://flightvn.com/Booking/ImportBooking', {
+          method: 'GET',
+          credentials: 'include'
+        });
+      } catch (fetchErr) {
+        console.error('[FlightVN] Lỗi fetch check login:', fetchErr);
+        return { success: false, error: 'Không thể kết nối đến FlightVN' };
+      } finally {
+        if (ruleApplied) {
+          try {
+            await chrome.declarativeNetRequest.updateSessionRules({
+              removeRuleIds: [999]
+            });
+          } catch (clearErr) {
+            console.error('[FlightVN] Lỗi khi gỡ rule declarativeNetRequest:', clearErr);
+          }
+        }
+      }
+
+      if (!response.ok) {
+        return { success: false, error: `Lỗi kết nối FlightVN: ${response.status}` };
+      }
+
+      if (response.url && (response.url.toLowerCase().includes('/login') || response.url.toLowerCase().includes('/account/') || response.url.includes('urlReturn='))) {
+        return { success: false, error: 'Chưa đăng nhập FlightVN' };
+      }
+
+      const html = await response.text();
+      const titleMatch = html.match(/<title>([\s\S]*?)<\/title>/i);
+      if (titleMatch && (titleMatch[1].trim().toLowerCase() === 'đăng nhập' || titleMatch[1].trim().toLowerCase() === 'login')) {
+        return { success: false, error: 'Chưa đăng nhập FlightVN' };
+      }
+
+      return { success: true };
+    };
+
+    handleCheckLogin().then(res => sendResponse(res));
+    return true; // Giữ kết nối bất đồng bộ
+  }
+
+  if (message.action === 'capture_tab_rect') {
+    // Determine target window: try sender tab first, fallback to active tab in lastFocusedWindow or currentWindow
+    let windowId = undefined;
+    if (sender && sender.tab && typeof sender.tab.windowId === 'number') {
+      windowId = sender.tab.windowId;
+    }
+    
+    const performCapture = (winId) => {
+      chrome.tabs.captureVisibleTab(winId, { format: 'png' }, (dataUrl) => {
+        if (chrome.runtime.lastError) {
+          const firstErr = chrome.runtime.lastError.message || JSON.stringify(chrome.runtime.lastError);
+          console.error('Lỗi captureVisibleTab (lần 1): ', firstErr);
+          
+          // Fallback to active tab of last focused window
+          chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+            let lastFocusedWinId = undefined;
+            if (tabs && tabs[0]) {
+              lastFocusedWinId = tabs[0].windowId;
+            }
+            chrome.tabs.captureVisibleTab(lastFocusedWinId, { format: 'png' }, (dataUrlFallback) => {
+              if (chrome.runtime.lastError) {
+                const secondErr = chrome.runtime.lastError.message || JSON.stringify(chrome.runtime.lastError);
+                console.error('Lỗi captureVisibleTab (lần 2): ', secondErr);
+                
+                // Final fallback: try current window context active tab
+                chrome.tabs.query({ active: true, currentWindow: true }, (currentTabs) => {
+                  let currentWinId = undefined;
+                  if (currentTabs && currentTabs[0]) {
+                    currentWinId = currentTabs[0].windowId;
+                  }
+                  chrome.tabs.captureVisibleTab(currentWinId, { format: 'png' }, (dataUrlFinal) => {
+                    if (chrome.runtime.lastError) {
+                      const finalErr = chrome.runtime.lastError.message || JSON.stringify(chrome.runtime.lastError);
+                      console.error('Lỗi captureVisibleTab (cuối cùng): ', finalErr);
+                      sendResponse({ success: false, error: `Capture failed: ${firstErr} -> ${secondErr} -> ${finalErr}` });
+                    } else {
+                      sendResponse({ success: true, dataUrl: dataUrlFinal });
+                    }
+                  });
+                });
+              } else {
+                sendResponse({ success: true, dataUrl: dataUrlFallback });
+              }
+            });
+          });
+        } else {
+          sendResponse({ success: true, dataUrl: dataUrl });
+        }
+      });
+    };
+
+    performCapture(windowId);
     return true; // Giữ kết nối để phản hồi bất đồng bộ
   }
 
@@ -150,15 +284,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return;
         }
 
+        const ticketNumbers = validTickets.map(t => t.ticket_number);
+        let existingMap = {};
+        if (ticketNumbers.length > 0) {
+          try {
+            const existRes = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache?ticket_number=in.(${ticketNumbers.map(n => `%22${n}%22`).join(',')})`, {
+              method: 'GET',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+              }
+            });
+            if (existRes.ok) {
+              const list = await existRes.json();
+              list.forEach(item => {
+                existingMap[item.ticket_number] = item;
+              });
+            }
+          } catch (existErr) {
+            console.warn('[Supabase] Lỗi khi đọc cache cũ in save_ticket_cache:', existErr);
+          }
+        }
+
         console.log(`[Supabase] Đang lưu cache cho ${validTickets.length} vé hợp lệ...`);
-        const payload = validTickets.map(t => ({
-          ticket_number: t.ticket_number,
-          pnr_code: t.pnr_code ? t.pnr_code.split('*')[0].trim() : t.pnr_code,
-          ticket_class: t.ticket_class,
-          carrier: t.carrier !== undefined ? t.carrier : null,
-          fare: t.fare !== undefined ? t.fare : null,
-          updated_at: new Date().toISOString()
-        }));
+        const payload = validTickets.map(t => {
+          const existing = existingMap[t.ticket_number] || {};
+          return {
+            ticket_number: t.ticket_number,
+            pnr_code: t.pnr_code ? t.pnr_code.split('*')[0].trim() : t.pnr_code,
+            ticket_class: t.ticket_class,
+            carrier: t.carrier !== undefined ? t.carrier : null,
+            fare: t.fare !== undefined ? t.fare : null,
+            channel: (t.channel !== undefined && t.channel !== null && String(t.channel).trim() !== '' && String(t.channel).toUpperCase() !== 'EMPTY' && String(t.channel).toUpperCase() !== 'NULL') ? String(t.channel).trim() : 'Partner',
+            AGCODE: t.AGCODE !== undefined ? t.AGCODE : null,
+            DATECOM: t.DATECOM !== undefined ? t.DATECOM : null,
+            flight: existing.flight === true ? true : null,
+            updated_at: new Date().toISOString()
+          };
+        });
         const response = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache`, {
           method: 'POST',
           headers: {
@@ -193,7 +356,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === 'fetch_vietnamairlines') {
-    let { pnr, lastName, passengerName, airlineId, hasAsterisk } = message;
+    let { pnr, lastName, passengerName, airlineId, hasAsterisk, ticketNumbers: msgTicketNumbers, agCode, dateCom } = message;
     if (pnr) {
       pnr = pnr.split('*')[0].trim();
     }
@@ -206,7 +369,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (SUPABASE_KEY) {
         try {
           console.log(`[Supabase] Đang tìm kiếm cache cho PNR ${pnr}...`);
-          const cacheRes = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache?pnr_code=eq.${pnr}&json_data=not.is.null&select=json_data,carrier,ticket_class,fare&limit=1`, {
+          const cacheRes = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache?pnr_code=eq.${pnr}&flight=eq.true&select=json_data,carrier,ticket_class,fare,flight&limit=1`, {
             method: 'GET',
             headers: {
               'apikey': SUPABASE_KEY,
@@ -449,6 +612,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const ticketFareMap = {};
         const flightSegments = [];
         const passengers = [];
+        const segmentClassesList = [];
 
         if (segmentsTable.length > 1 || passengersTable.length > 1) {
           const isSPA = (airlineId === 'SPA');
@@ -474,8 +638,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (row.length >= 7 && row[6]) {
               segmentClass = row[6].trim();
             }
-            if (segmentClass && !parsedTicketClass) {
-              parsedTicketClass = segmentClass;
+            if (segmentClass) {
+              segmentClassesList.push(segmentClass.toUpperCase().trim());
             }
 
             const flightCode = row[1] || '';
@@ -512,6 +676,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               arrivalLocationCode: to,
               departureDateTime
             });
+          }
+
+          if (segmentClassesList.length > 0) {
+            parsedTicketClass = segmentClassesList.join('-');
           }
 
           data.reservation.originDestinationOptions = flightSegments.length > 0 ? [{ flightSegments }] : [];
@@ -572,6 +740,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
             const lines = ticketFaceText.split('\n');
             const ticketMap = {};
+            const segmentClassesList = [];
 
             const segRegex = /^\s*\d+\s+([A-Z0-9]{2})\s*([0-9]+)\s+([A-Z])\s+(\d{1,2})([A-Z]{3})\s+([A-Z]{3})([A-Z]{3})\s+([A-Z]{2})\s*([0-9]{4})/i;
             const paxRegex = /^\s*\d+\.?\d*([A-Z]+)\/([A-Z\s]+)\s+([A-Z]+)/i;
@@ -582,8 +751,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (segMatch) {
                 const marketingAirlineCode = segMatch[1].toUpperCase();
                 const flightNumber = segMatch[2];
-                if (!parsedTicketClass && segMatch[3]) {
-                  parsedTicketClass = segMatch[3].toUpperCase().trim();
+                if (segMatch[3]) {
+                  segmentClassesList.push(segMatch[3].toUpperCase().trim());
                 }
                 const day = segMatch[4].padStart(2, '0');
                 const monthStr = segMatch[5].toUpperCase();
@@ -628,9 +797,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 const ticketNum = tktMatch[1];
                 const rawName = tktMatch[2].toUpperCase().trim();
                 const cleanName = rawName.replace(/\//g, ' ').replace(/\s+/g, ' ');
-                ticketMap[cleanName] = ticketNum;
+                 ticketMap[cleanName] = ticketNum;
               }
             });
+
+            if (segmentClassesList.length > 0) {
+              parsedTicketClass = segmentClassesList.join('-');
+            }
 
             passengers.forEach(p => {
               if (ticketMap[p.fullName]) {
@@ -663,11 +836,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         // 4. Lưu vào Supabase cache (vna_ticket_cache)
-        if (SUPABASE_KEY && (flightSegments.length > 0 || passengers.length > 0)) {
+        let supabaseStatus = 'Not executed';
+        if (SUPABASE_KEY) {
           const passengersToSave = passengers.length > 0 ? passengers : [{ fullName: 'UNKNOWN', title: '', ticketNumber: '' }];
           
-          // Lấy thông tin hiện có từ Supabase cache để merge tránh mất ticket_type, ticket_class
           const ticketNumbers = [];
+          if (msgTicketNumbers && Array.isArray(msgTicketNumbers)) {
+            msgTicketNumbers.forEach(n => {
+              if (n) ticketNumbers.push(n);
+            });
+          }
           passengersToSave.forEach(p => {
             let tkt = p.ticketNumber;
             if (!tkt) {
@@ -685,27 +863,69 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           });
 
           let existingMap = {};
-          if (ticketNumbers.length > 0) {
-            try {
-              const existRes = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache?ticket_number=in.(${ticketNumbers.map(n => `%22${n}%22`).join(',')})`, {
-                method: 'GET',
-                headers: {
-                  'apikey': SUPABASE_KEY,
-                  'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
-              });
-              if (existRes.ok) {
-                const list = await existRes.json();
-                list.forEach(item => {
-                  existingMap[item.ticket_number] = item;
-                });
-              }
-            } catch (existErr) {
-              console.warn('[Supabase] Lỗi khi đọc cache cũ trước khi lưu PNR:', existErr);
+          try {
+            let filter = `pnr_code=eq.${pnr}`;
+            if (ticketNumbers.length > 0) {
+              filter = `or=(pnr_code.eq.${pnr},ticket_number.in.(${ticketNumbers.map(n => `%22${n}%22`).join(',')}))`;
             }
+            const existRes = await fetch(`${SUPABASE_URL}/rest/v1/vna_ticket_cache?${filter}`, {
+              method: 'GET',
+              headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+              }
+            });
+            if (existRes.ok) {
+              const list = await existRes.json();
+              list.forEach(item => {
+                existingMap[item.ticket_number] = item;
+              });
+            }
+          } catch (existErr) {
+            console.warn('[Supabase] Lỗi khi đọc cache cũ trước khi lưu PNR:', existErr);
+            supabaseStatus = `Error reading existing cache: ${existErr.message}`;
           }
 
           const payloadMap = {};
+
+          // Khởi tạo trước tất cả các vé đã có trong database của PNR này với flight: true
+          Object.keys(existingMap).forEach(tkt => {
+            const existing = existingMap[tkt];
+            payloadMap[tkt] = {
+              ticket_number: tkt,
+              pnr_code: pnr,
+              json_data: flightSegments.length > 0 ? flightSegments : (existing.json_data || []),
+              carrier: carrier || existing.carrier || null,
+              ticket_class: existing.ticket_class || null,
+              fare: existing.fare || null,
+              channel: (existing.channel !== undefined && existing.channel !== null && String(existing.channel).trim() !== '' && String(existing.channel).toUpperCase() !== 'EMPTY' && String(existing.channel).toUpperCase() !== 'NULL') ? String(existing.channel).trim() : 'Partner',
+              AGCODE: existing.AGCODE || agCode || 'SJNTRH',
+              DATECOM: dateCom || existing.DATECOM || null,
+              flight: true,
+              updated_at: new Date().toISOString()
+            };
+          });
+
+          // Thêm cả các vé từ ticketNumbers (bao gồm vé từ frontend) để đảm bảo chúng có flight: true
+          ticketNumbers.forEach(tkt => {
+            if (!tkt) return;
+            const existing = existingMap[tkt] || {};
+            payloadMap[tkt] = {
+              ticket_number: tkt,
+              pnr_code: pnr,
+              json_data: flightSegments.length > 0 ? flightSegments : (existing.json_data || []),
+              carrier: carrier || existing.carrier || null,
+              ticket_class: existing.ticket_class || null,
+              fare: existing.fare || null,
+              channel: (existing.channel !== undefined && existing.channel !== null && String(existing.channel).trim() !== '' && String(existing.channel).toUpperCase() !== 'EMPTY' && String(existing.channel).toUpperCase() !== 'NULL') ? String(existing.channel).trim() : 'Partner',
+              AGCODE: existing.AGCODE || agCode || 'SJNTRH',
+              DATECOM: dateCom || existing.DATECOM || null,
+              flight: true,
+              updated_at: new Date().toISOString()
+            };
+          });
+
+          // Ghi đè hoặc thêm thông tin hành khách vừa parse được
           passengersToSave.forEach(p => {
             let tkt = p.ticketNumber;
             if (!tkt) {
@@ -734,21 +954,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             } else if (parsedFare !== null) {
               fareToSave = parsedFare;
             }
-            console.log(`[Skyjet Debug] PNR: ${pnr}, Ticket: ${tkt}, Passenger: ${p.fullName}, fareToSave: ${fareToSave}, parsedFare: ${parsedFare}, ticketFareMap:`, ticketFareMap);
             payloadMap[tkt] = {
               ticket_number: tkt,
               pnr_code: pnr,
-              json_data: flightSegments, // Store ONLY flightSegments array
-              carrier: carrier,
+              json_data: flightSegments,
+              carrier: carrier || existing.carrier || null,
               ticket_class: ticketClassToSave,
               fare: fareToSave,
+              channel: (existing.channel !== undefined && existing.channel !== null && String(existing.channel).trim() !== '' && String(existing.channel).toUpperCase() !== 'EMPTY' && String(existing.channel).toUpperCase() !== 'NULL') ? String(existing.channel).trim() : 'Partner',
+              AGCODE: existing.AGCODE || agCode || 'SJNTRH',
+              DATECOM: dateCom || existing.DATECOM || null,
+              flight: true,
               updated_at: new Date().toISOString()
             };
           });
           const payload = Object.values(payloadMap).filter((t) => {
-            const hasJsonData = t.json_data && Array.isArray(t.json_data) && t.json_data.length > 0;
-            return hasJsonData && 
-                   isValidField(t.ticket_number) && 
+            return isValidField(t.ticket_number) && 
                    !/[^a-zA-Z0-9]/.test(t.ticket_number.trim()) &&
                    isValidField(t.pnr_code);
           });
@@ -768,22 +989,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               });
               if (saveRes.ok) {
                 console.log(`[Supabase] Lưu thành công PNR ${pnr} vào cache.`);
+                supabaseStatus = `Success: Saved ${payload.length} records`;
               } else {
-                console.error('[Supabase] Ghi cache PNR thất bại:', await saveRes.text());
+                const errText = await saveRes.text();
+                console.error('[Supabase] Ghi cache PNR thất bại:', errText);
+                supabaseStatus = `Failed to save: ${errText}`;
               }
             } catch (saveErr) {
               console.error('[Supabase] Lỗi khi lưu cache PNR:', saveErr);
+              supabaseStatus = `Exception saving: ${saveErr.message}`;
             }
+          } else {
+            supabaseStatus = 'No valid records to save in payload';
           }
         }
 
-        const ticket_type = (hasAsterisk && parsedTicketClass) ? 'Vé bán' : null;
+        const ticket_type = (hasAsterisk && parsedTicketClass) ? 'Vé' : null;
         const ticket_class = parsedTicketClass || null;
         const farePerTicket = parsedFare !== null ? parsedFare : null;
-        sendResponse({ success: true, source: 'flightvn', data, ticket_type, ticket_class, fare: farePerTicket, ticketFareMap: ticketFareMap });
+        sendResponse({ success: true, source: 'flightvn', data, ticket_type, ticket_class, fare: farePerTicket, ticketFareMap: ticketFareMap, supabaseStatus });
       } catch (err) {
         console.error('Lỗi khi tra cứu FlightVN PNR ' + pnr + ':', err);
-        sendResponse({ success: false, error: err.message });
+        sendResponse({ success: false, error: err.message, supabaseStatus: `Exception: ${err.message}` });
       }
     };
 

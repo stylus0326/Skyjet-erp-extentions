@@ -20,6 +20,7 @@ import {
   Camera
 } from 'lucide-react';
 import { Campaign, CampaignBlackoutPeriod, CampaignDetail, Policy, Threshold, Airport } from '../types';
+import { CustomSelect } from './CustomSelect';
 
 declare const chrome: any;
 
@@ -1144,8 +1145,8 @@ function parseHtmlDebtData(htmlString: string) {
 
   // 2. Fallbacks (e.g. from dropdown selects or input fields) if still empty or "Chưa có"
   if (!agencyCode || !agencyName || agencyCode === "Chưa có" || agencyName === "Chưa có") {
-    // Extract selected agency from dropdown selects
-    const selects = Array.from(doc.querySelectorAll('select[id*="agent" i], select[name*="agent" i], select[id*="customer" i], select[name*="customer" i]'));
+    // Extract selected agency from dropdown selects (including user selectors)
+    const selects = Array.from(doc.querySelectorAll('select[id*="agent" i], select[name*="agent" i], select[id*="customer" i], select[name*="customer" i], select[id*="user" i], select[name*="user" i]'));
     selects.forEach(select => {
       const selectedOpt = select.querySelector('option[selected], option:checked') as HTMLOptionElement;
       if (selectedOpt && selectedOpt.value) {
@@ -1172,6 +1173,23 @@ function parseHtmlDebtData(htmlString: string) {
         agencyCode = val.trim();
       }
     });
+
+    // Method 2: Sidebar/Header user profile elements (e.g. circle text circle showing SJNMGO)
+    if (!agencyCode || agencyCode === "Chưa có") {
+      const profileEl = doc.querySelector('.user-profile, .profile_info h2, .user-panel .info a, .profile-username, a.user-profile span, .sidebar-user .info');
+      if (profileEl) {
+        const textVal = profileEl.textContent?.trim();
+        if (textVal) {
+          const match = textVal.match(/[A-Z0-9]{3,12}/);
+          if (match) {
+            agencyCode = match[0];
+            if (!agencyName || agencyName === "Chưa có") {
+              agencyName = textVal;
+            }
+          }
+        }
+      }
+    }
   }
 
   let startingBalance = 4719200;
@@ -1275,6 +1293,7 @@ function parseHtmlDebtData(htmlString: string) {
 }
 
 export function CalculatorTab() {
+  const isAgent = new URLSearchParams(window.location.search).get('isAgent') === 'true';
   const startScrollCaptureRef = React.useRef<() => void>();
 
   const [startingBalance, setStartingBalance] = useState<number>(0);
@@ -1331,6 +1350,8 @@ export function CalculatorTab() {
   const [agencyCode, setAgencyCode] = useState<string>('');
   const [agencyEmail, setAgencyEmail] = useState<string>('');
 
+  const passedAgencyInfoRef = React.useRef<{ code: string; name: string; email: string }>({ code: '', name: '', email: '' });
+
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [pendingHtml, setPendingHtml] = useState<string | null>(null);
 
@@ -1343,6 +1364,11 @@ export function CalculatorTab() {
       if (event.data && event.data.action === 'import_x_content') {
         const html = event.data.html;
         if (html) {
+          passedAgencyInfoRef.current = {
+            code: event.data.agencyCode || '',
+            name: event.data.agencyName || '',
+            email: event.data.agencyEmail || ''
+          };
           setPendingHtml(html);
         }
         if (event.data.iframeRect) {
@@ -1368,7 +1394,12 @@ export function CalculatorTab() {
   }, []);
 
   const matchedPolicies = useMemo(() => {
-    if (!agencyCode || policies.length === 0) return [];
+    if (policies.length === 0) return [];
+    if (!agencyCode || agencyCode === 'Chưa có' || agencyCode.trim() === '') {
+      const globalPol = policies.filter(p => !p.agents || p.agents.length === 0);
+      if (globalPol.length > 0) return globalPol;
+      return [policies[0]];
+    }
     const trimmedCode = agencyCode.trim().toUpperCase();
     const specific = policies.filter(p => p.agents && p.agents.some(ag => ag.trim().toUpperCase() === trimmedCode));
     if (specific.length > 0) return specific;
@@ -1385,9 +1416,10 @@ export function CalculatorTab() {
   const lastInitializedAgencyRef = React.useRef<string>('');
 
   useEffect(() => {
-    if (agencyCode && matchedPolicies.length > 0) {
-      if (agencyCode !== lastInitializedAgencyRef.current) {
-        lastInitializedAgencyRef.current = agencyCode;
+    const currentCode = agencyCode || '';
+    if (matchedPolicies.length > 0) {
+      if (currentCode !== lastInitializedAgencyRef.current) {
+        lastInitializedAgencyRef.current = currentCode;
         setSelectedPolicyId(matchedPolicies[0].id);
       }
     }
@@ -1415,9 +1447,18 @@ export function CalculatorTab() {
       if (parsed && parsed.transactions) {
         const startingBal = parsed.startingBalance !== undefined ? parsed.startingBalance : 0;
         setStartingBalance(startingBal);
-        setAgencyName(parsed.agencyName || '');
-        setAgencyCode(parsed.agencyCode || '');
-        setAgencyEmail(parsed.agencyEmail || '');
+        
+        const finalCode = passedAgencyInfoRef.current.code || parsed.agencyCode || '';
+        const finalName = passedAgencyInfoRef.current.name || parsed.agencyName || '';
+        const finalEmail = passedAgencyInfoRef.current.email || parsed.agencyEmail || '';
+        
+        setAgencyName(finalName);
+        setAgencyCode(finalCode);
+        setAgencyEmail(finalEmail);
+        
+        // Reset the ref
+        passedAgencyInfoRef.current = { code: '', name: '', email: '' };
+
         if (parsed.creditLimit !== undefined) {
           setCreditLimit(parsed.creditLimit);
         }
@@ -1508,8 +1549,9 @@ export function CalculatorTab() {
       let nextPolicyId = selectedPolicyId;
       if (polData && polData.length > 0) {
         if (!selectedPolicyId || !polData.some(p => p.id === selectedPolicyId)) {
-          nextPolicyId = polData[0].id;
-          setSelectedPolicyId(polData[0].id);
+          const globalPol = polData.find(p => !p.agents || p.agents.length === 0);
+          nextPolicyId = globalPol ? globalPol.id : polData[0].id;
+          setSelectedPolicyId(nextPolicyId);
         }
       }
       setAirports(airData || []);
@@ -1538,7 +1580,8 @@ export function CalculatorTab() {
 
   useEffect(() => {
     if (policies.length > 0 && selectedPolicyId === null) {
-      setSelectedPolicyId(policies[0].id);
+      const globalPol = policies.find(p => !p.agents || p.agents.length === 0);
+      setSelectedPolicyId(globalPol ? globalPol.id : policies[0].id);
     }
   }, [policies]);
 
@@ -2512,6 +2555,11 @@ export function CalculatorTab() {
 
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+    let tfootEl: HTMLTableSectionElement | null = null;
+    let stickyTds: any = [];
+    let originalTfootPosition = '';
+    let originalTdPositions: string[] = [];
+
     try {
       const captureTabRect = () => {
         return new Promise<{ success: boolean; dataUrl?: string; error?: string }>((resolve) => {
@@ -2555,10 +2603,10 @@ export function CalculatorTab() {
       await sleep(250);
 
       // Temporarily change tfoot and all its td cells to static to prevent them from overlaying on every frame
-      const tfootEl = container.querySelector('tfoot');
-      const stickyTds = tfootEl ? tfootEl.querySelectorAll('td') : [];
-      const originalTfootPosition = tfootEl ? tfootEl.style.position : '';
-      const originalTdPositions = Array.from(stickyTds).map((td: any) => td.style.position);
+      tfootEl = container.querySelector('tfoot');
+      stickyTds = tfootEl ? Array.from(tfootEl.querySelectorAll('td')) : [];
+      originalTfootPosition = tfootEl ? tfootEl.style.position : '';
+      originalTdPositions = stickyTds.map((td: any) => td.style.position);
 
       if (tfootEl) {
         tfootEl.style.position = 'static';
@@ -2893,20 +2941,16 @@ export function CalculatorTab() {
       <div className="grid grid-cols-2 md:grid-cols-6 gap-1.5">
         {/* Policy Selector */}
         <div className="bg-zinc-900/15 border border-zinc-900/50 rounded px-2.5 py-1 flex items-center justify-between gap-1.5 min-h-[38px] col-span-2 md:col-span-1">
-          <label className="text-[9px] font-extrabold text-zinc-500 uppercase tracking-wider leading-none whitespace-nowrap">Chính sách</label>
-          <select
-            value={selectedPolicyId || ''}
-            onChange={(e) => {
-              const val = parseInt(e.target.value, 10) || null;
-              setSelectedPolicyId(val);
-            }}
-            className="block w-full py-0.5 px-1 border border-zinc-800/80 rounded bg-zinc-950/60 text-zinc-100 font-bold text-[10px] focus:outline-none focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
-          >
-            <option value="">-- Chọn CS --</option>
-            {policies.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <label className="text-[9px] font-extrabold text-zinc-500 uppercase tracking-wider leading-none whitespace-nowrap mr-1">Chính sách</label>
+          <div className="flex-1 min-w-0">
+            <CustomSelect
+              value={selectedPolicyId || ''}
+              onChange={(val) => setSelectedPolicyId(val ? Number(val) : null)}
+              disabled={isAgent}
+              placeholder="-- Chọn CS --"
+              options={policies.map(p => ({ value: p.id, label: p.name }))}
+            />
+          </div>
         </div>
 
         {/* Starting balance input */}
@@ -2986,43 +3030,43 @@ export function CalculatorTab() {
       </div>
 
       {/* Main Table Panel */}
-      <div className="bg-zinc-950 border border-zinc-900/80 rounded-md overflow-hidden shadow-xl flex flex-col min-h-0 flex-1 relative">
+      <div className="bg-white border border-[#cbd5e1] rounded-md overflow-hidden shadow-sm flex flex-col min-h-0 flex-1 relative">
 
         {/* Responsive Table Scroll container */}
         <div id="skyjet-transactions-scroll-container" className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
-          <table className="w-full text-left border-collapse">
+          <table className="skyjet-erp-table w-full text-left border-collapse">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-zinc-900 text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
-                <th className="px-1 py-0.5 text-center w-10 bg-zinc-900">STT</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Kênh</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Hãng</th>
-                <th className="px-1 py-0.5 text-center bg-zinc-900">Ngày</th>
-                <th className="px-1 py-0.5 text-center bg-zinc-900">Loại</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Mã ĐH</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Số vé</th>
-                <th className="px-1 py-0.5 text-center bg-zinc-900">Hạng</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Hành trình</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Thời gian bay</th>
-                <th className="px-1 py-0.5 bg-zinc-900">Tên khách</th>
-                <th className="px-1 py-0.5 text-right bg-zinc-900">Giá vé</th>
-                <th className="px-1 py-0.5 text-right bg-zinc-900">Giá bán</th>
-                <th className="px-1 py-0.5 text-right text-amber-400/90 font-bold bg-zinc-900">Chiết khấu</th>
-                <th className="px-1 py-0.5 text-right bg-zinc-900">Nợ</th>
-                <th className="px-1 py-0.5 text-right bg-zinc-900">Có</th>
-                <th className="px-1 py-0.5 text-right bg-zinc-900">Lũy kế</th>
-                <th className="px-1 py-0.5 text-center bg-zinc-900">PT</th>
+              <tr>
+                <th className="text-center w-10">STT</th>
+                <th>Ngày hạch toán</th>
+                <th>Hãng</th>
+                <th>Kênh</th>
+                <th className="text-center">Loại vé</th>
+                <th>Mã đơn hàng</th>
+                <th>Số vé</th>
+                <th className="text-center">Hạng vé</th>
+                <th>Hành trình</th>
+                <th>Thời gian bay</th>
+                <th>Tên khách</th>
+                <th className="text-right">Giá vé</th>
+                <th className="text-right">Giá bán</th>
+                <th className="text-right">Chiết khấu</th>
+                <th className="text-right">Nợ</th>
+                <th className="text-right">Có</th>
+                <th className="text-right">Lũy kế</th>
+                <th className="text-center">PT</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-900/30 text-[11px]">
+            <tbody className="text-[11px]">
               {transactions.length === 0 ? (
                 <tr>
                   <td colSpan={18} className="p-12 text-center text-zinc-500 font-medium">
                     <div className="flex flex-col items-center justify-center space-y-3 py-6">
-                      <div className="p-4 rounded-full bg-zinc-900 border border-zinc-850 text-zinc-400">
+                      <div className="p-4 rounded-full bg-zinc-50 border border-zinc-200 text-zinc-400">
                         <Upload className="w-8 h-8 text-amber-500/80 animate-pulse" />
                       </div>
                       <div className="space-y-1">
-                        <span className="text-zinc-300 text-sm font-extrabold block">Bảng công nợ chưa có dữ liệu</span>
+                        <span className="text-zinc-800 text-sm font-extrabold block">Bảng công nợ chưa có dữ liệu</span>
                         <p className="text-zinc-500 text-xs max-w-md mx-auto leading-relaxed">
                           Dữ liệu công nợ sẽ tự động được lấy và điền từ trang tìm kiếm giao dịch của ERP.
                         </p>
@@ -3032,369 +3076,403 @@ export function CalculatorTab() {
                 </tr>
               ) : (
                 transactions.map((tx, idx) => {
-                const isTicket = tx.ticketType && tx.ticketType.trim().toLowerCase() === 'vé';
-                const isRefund = tx.ticketType === 'Hoàn';
-                const isExchange = tx.ticketType === 'Đổi';
+                  const isTicket = tx.ticketType && tx.ticketType.trim().toLowerCase() === 'vé';
+                  const isRefund = tx.ticketType === 'Hoàn';
+                  const isExchange = tx.ticketType === 'Đổi';
 
-                // Parse segments
-                const segs: { class: string; route: string; time: string }[] = [];
-                const journeyStr = (tx.journey || '').trim();
-                const bookingClassStr = tx.bookingClass || '';
-                const flightTimeStr = tx.flightTime || '';
+                  // Parse segments
+                  const segs: { class: string; route: string; time: string }[] = [];
+                  const journeyStr = (tx.journey || '').trim();
+                  const bookingClassStr = tx.bookingClass || '';
+                  const flightTimeStr = tx.flightTime || '';
 
-                if (journeyStr) {
-                  let routeSegments: string[] = [];
-                  
-                  // Kiểm tra xem chuỗi có chứa ký tự phân tách thông thường không (, hoặc -)
-                  if (journeyStr.includes(',') || journeyStr.includes('-')) {
-                    if (journeyStr.includes(',')) {
-                      routeSegments = journeyStr.split(',').map(s => s.trim());
-                    } else {
-                      const airports = journeyStr.split('-').map(s => s.trim());
-                      for (let i = 0; i < airports.length - 1; i++) {
-                        routeSegments.push(`${airports[i]}-${airports[i+1]}`);
+                  if (journeyStr) {
+                    let routeSegments: string[] = [];
+                    
+                    // Kiểm tra xem chuỗi có chứa ký tự phân tách thông thường không (, hoặc -)
+                    if (journeyStr.includes(',') || journeyStr.includes('-')) {
+                      if (journeyStr.includes(',')) {
+                        routeSegments = journeyStr.split(',').map(s => s.trim());
+                      } else {
+                        const airports = journeyStr.split('-').map(s => s.trim());
+                        for (let i = 0; i < airports.length - 1; i++) {
+                          routeSegments.push(`${airports[i]}-${airports[i+1]}`);
+                        }
                       }
+                    } else {
+                      // Xử lý dạng chuỗi liên tục e.g. "SGNVJHUISGN" hoặc "SGNVJHUISGNVJHUI"
+                      // Tìm tất cả các mã sân bay 3 chữ cái viết hoa liên tiếp
+                      const airportMatches = journeyStr.toUpperCase().match(/[A-Z]{3}/g);
+                      if (airportMatches && airportMatches.length >= 2) {
+                        for (let i = 0; i < airportMatches.length - 1; i++) {
+                          routeSegments.push(`${airportMatches[i]}-${airportMatches[i+1]}`);
+                        }
+                      } else {
+                        routeSegments.push(journeyStr);
+                      }
+                    }
+
+                    const classes = bookingClassStr ? bookingClassStr.split(/[, \-|]+/).map(c => c.trim()) : [];
+                    const times = flightTimeStr ? flightTimeStr.split(/[,|]+/).map(t => t.trim()) : [];
+
+                    for (let i = 0; i < routeSegments.length; i++) {
+                      segs.push({
+                        class: classes[i] || classes[0] || '',
+                        route: routeSegments[i],
+                        time: times[i] || ''
+                      });
                     }
                   } else {
-                    // Xử lý dạng chuỗi liên tục e.g. "SGNVJHUISGN" hoặc "SGNVJHUISGNVJHUI"
-                    // Tìm tất cả các mã sân bay 3 chữ cái viết hoa liên tiếp
-                    const airportMatches = journeyStr.toUpperCase().match(/[A-Z]{3}/g);
-                    if (airportMatches && airportMatches.length >= 2) {
-                      for (let i = 0; i < airportMatches.length - 1; i++) {
-                        routeSegments.push(`${airportMatches[i]}-${airportMatches[i+1]}`);
-                      }
-                    } else {
-                      routeSegments.push(journeyStr);
-                    }
-                  }
-
-                  const classes = bookingClassStr ? bookingClassStr.split(/[, \-|]+/).map(c => c.trim()) : [];
-                  const times = flightTimeStr ? flightTimeStr.split(/[,|]+/).map(t => t.trim()) : [];
-
-                  for (let i = 0; i < routeSegments.length; i++) {
                     segs.push({
-                      class: classes[i] || classes[0] || '',
-                      route: routeSegments[i],
-                      time: times[i] || ''
+                      class: bookingClassStr,
+                      route: '',
+                      time: flightTimeStr
                     });
                   }
-                } else {
-                  segs.push({
-                    class: bookingClassStr,
-                    route: '',
-                    time: flightTimeStr
-                  });
-                }
 
-                return (
-                  <tr 
-                    key={idx} 
-                    className={`hover:bg-zinc-900/20 transition-colors border-b border-zinc-900/50 align-middle ${
-                      isRefund ? 'bg-rose-500/5' : isExchange ? 'bg-amber-500/5' : ''
-                    }`}
-                  >
-                    {/* STT */}
-                    <td className="px-1.5 py-0.5 text-center font-mono text-zinc-500 text-[12px]">{tx.stt}</td>
+                  return (
+                    <tr 
+                      key={idx} 
+                      className={`align-middle ${
+                        isRefund ? 'bg-rose-refund' : isExchange ? 'bg-amber-exchange' : ''
+                      }`}
+                    >
+                      {/* 1. STT */}
+                      <td className="text-center font-mono">{tx.stt}</td>
 
-                    {/* Kênh */}
-                    <td className="px-1.5 py-0.5 text-center">
-                      {tx.orderCode && tx.orderCode.trim() ? (
-                        <button
-                          onClick={() => {
-                            const val = tx.channel === 'FLIGHTVN' ? 'PARTNER' : 'FLIGHTVN';
-                            const updatedTxs = transactions.map(t => t.stt === tx.stt ? { ...t, channel: val } : t);
-                            const computed = recalculateBalancesAndDiscounts(updatedTxs, startingBalance);
-                            setTransactions(computed);
-                          }}
-                          className={`px-1.5 py-0 rounded-md text-[9px] font-bold transition-all duration-150 cursor-pointer border select-none inline-flex items-center gap-1 shadow-sm active:scale-95 ${
-                            tx.channel === 'FLIGHTVN'
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
-                              : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
-                          }`}
-                          title="Nhấp để chuyển đổi giữa PARTNER và FLIGHTVN"
-                        >
-                          <span className={`w-1 h-1 rounded-full ${tx.channel === 'FLIGHTVN' ? 'bg-blue-500' : 'bg-amber-500'}`} />
-                          {(() => {
-                            const chan = (tx.channel || 'PARTNER').trim().toUpperCase();
-                            if (chan === 'PARTNER') return 'PAR';
-                            if (chan === 'FLIGHTVN') return 'FLI';
-                            return chan;
-                          })()}
-                        </button>
-                      ) : (
-                        <span className="text-zinc-600 font-mono">-</span>
-                      )}
-                    </td>
+                      {/* 2. Ngày hạch toán */}
+                      <td className="text-center">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className="font-mono">{tx.bookingDate}</span>
+                          {!isAgent && (!tx.orderCode || !tx.orderCode.trim()) ? (
+                            <div className="relative w-[100px] flex items-center justify-center">
+                              <input
+                                type="text"
+                                value={tx.appliedDate || tx.bookingDate}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const updatedTxs = transactions.map((t, mapIdx) => {
+                                    if (mapIdx === idx) {
+                                      return { ...t, appliedDate: val || undefined };
+                                    }
+                                    return t;
+                                  });
+                                  const computed = recalculateBalancesAndDiscounts(updatedTxs, startingBalance);
+                                  setTransactions(computed);
+                                }}
+                                placeholder="dd/MM/yyyy"
+                                className="bg-white border border-zinc-300 rounded pl-1 pr-6 py-0.5 text-[10px] font-mono focus:outline-none focus:border-amber-500 text-center w-full"
+                              />
+                              <div className="absolute right-1 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center overflow-hidden cursor-pointer">
+                                <input
+                                  type="date"
+                                  value={convertDMYtoYMD(tx.appliedDate || tx.bookingDate)}
+                                  onChange={(e) => {
+                                    const ymd = e.target.value;
+                                    const dmy = convertYMDtoDMY(ymd);
+                                    const updatedTxs = transactions.map((t, mapIdx) => {
+                                      if (mapIdx === idx) {
+                                        return { ...t, appliedDate: dmy || undefined };
+                                      }
+                                      return t;
+                                    });
+                                    const computed = recalculateBalancesAndDiscounts(updatedTxs, startingBalance);
+                                    setTransactions(computed);
+                                  }}
+                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-[2] origin-center"
+                                />
+                                <Calendar className="w-3 h-3 text-zinc-400 pointer-events-none" />
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
 
-                    {/* Chứng từ / Hãng */}
-                    <td className="px-1.5 py-0.5 font-semibold text-zinc-100">
-                      {tx.carrier.match(/^ACB|VCB|BIDV/i) ? (
-                        <span className="text-[11px] font-mono text-zinc-500 truncate block max-w-[120px]" title={tx.carrier}>
-                          {tx.carrier}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-300 font-bold text-[12px]">
-                          {tx.carrier}
-                        </span>
-                      )}
-                    </td>
+                      {/* 3. Hãng */}
+                      <td className="font-semibold">
+                        {tx.carrier.match(/^ACB|VCB|BIDV/i) ? (
+                          <span className="text-[11px] font-mono text-zinc-500 block" title={tx.carrier}>
+                            {tx.carrier}
+                          </span>
+                        ) : (
+                          <span className="font-bold">
+                            {tx.carrier}
+                          </span>
+                        )}
+                      </td>
 
-                    {/* Ngày */}
-                    <td className="px-1.5 py-0.5 text-center">
-                      <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="font-mono text-zinc-400 text-[12px]">{tx.bookingDate}</span>
-                        {!tx.orderCode || !tx.orderCode.trim() ? (
-                          <input
-                            type="date"
-                            value={convertDMYtoYMD(tx.appliedDate || tx.bookingDate)}
-                            onChange={(e) => {
-                              const ymd = e.target.value;
-                              const dmy = convertYMDtoDMY(ymd);
-                              const updatedTxs = transactions.map((t, mapIdx) => {
-                                if (mapIdx === idx) {
-                                  return { ...t, appliedDate: dmy || undefined };
-                                }
-                                return t;
-                              });
+                      {/* 4. Kênh */}
+                      <td className="text-center">
+                        {tx.orderCode && tx.orderCode.trim() ? (
+                          <button
+                            onClick={() => {
+                              const val = tx.channel === 'FLIGHTVN' ? 'PARTNER' : 'FLIGHTVN';
+                              const updatedTxs = transactions.map(t => t.stt === tx.stt ? { ...t, channel: val } : t);
                               const computed = recalculateBalancesAndDiscounts(updatedTxs, startingBalance);
                               setTransactions(computed);
                             }}
-                            className="bg-zinc-950/80 border border-zinc-850 text-amber-400 rounded px-1 py-0.2 text-[10px] font-mono focus:outline-none focus:border-amber-500/50 text-center w-[100px]"
-                            style={{ colorScheme: 'dark' }}
-                          />
-                        ) : null}
-                      </div>
-                    </td>
-
-                    {/* Loại vé */}
-                    <td className="px-1.5 py-0.5 text-center">
-                      {tx.ticketType ? (
-                        <span className={`px-1 py-0 rounded text-[11px] font-bold ${
-                          tx.ticketType === 'Vé' 
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                            : tx.ticketType === 'Vé*' 
-                            ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                            : tx.ticketType === 'Hoàn'
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : tx.ticketType === 'Void'
-                            ? 'bg-amber-400 text-zinc-950 font-extrabold border border-amber-500/30'
-                            : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                        }`}>
-                          {tx.ticketType}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-600">—</span>
-                      )}
-                    </td>
-
-                    {/* Mã ĐH */}
-                    <td className="px-1.5 py-0.5 font-mono font-medium text-zinc-300 text-[12px]">{tx.orderCode || <span className="text-zinc-700 font-mono">-</span>}</td>
-
-                    {/* Số vé */}
-                    <td className="px-1.5 py-0.5 font-mono text-zinc-400 truncate max-w-[100px] text-[12px]" title={tx.ticketNumber}>{tx.ticketNumber || <span className="text-zinc-700">—</span>}</td>
-
-                    {/* Hạng */}
-                    <td className="px-1.5 py-0.5 text-center font-mono font-black text-amber-500 text-[12px]">
-                      <div className={`flex flex-col justify-center ${segs.length > 1 ? 'border border-zinc-800/80 rounded bg-zinc-900/10 px-1 py-0.5' : ''}`}>
-                        {segs.map((s, sIdx) => (
-                          <React.Fragment key={sIdx}>
-                            {sIdx > 0 && <div className="border-t border-dashed border-zinc-800/60 my-0.5 w-full" />}
-                            <span className="block leading-tight py-0.5">
-                              {s.class || <span className="text-zinc-700">—</span>}
-                            </span>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* Hành trình */}
-                    <td className="px-1.5 py-0.5 font-mono font-bold text-zinc-300 text-[12px]">
-                      <div className={`flex flex-col ${segs.length > 1 ? 'border border-zinc-800/80 rounded bg-zinc-900/10 px-1 py-0.5' : ''}`}>
-                        {segs.map((s, sIdx) => (
-                          <React.Fragment key={sIdx}>
-                            {sIdx > 0 && <div className="border-t border-dashed border-zinc-800/60 my-0.5 w-full" />}
-                            <span className="block leading-tight py-0.5">
-                              {s.route || <span className="text-zinc-700">—</span>}
-                            </span>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* Thời gian bay */}
-                    <td className="px-1.5 py-0.5 font-mono text-[11px] text-zinc-400" title={tx.flightTime}>
-                      <div className={`flex flex-col ${segs.length > 1 ? 'border border-zinc-800/80 rounded bg-zinc-900/10 px-1 py-0.5' : ''}`}>
-                        {segs.map((s, sIdx) => (
-                          <React.Fragment key={sIdx}>
-                            {sIdx > 0 && <div className="border-t border-dashed border-zinc-800/60 my-0.5 w-full" />}
-                            <span className="block leading-tight py-0.5">
-                              {s.time || <span className="text-zinc-700">—</span>}
-                            </span>
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* Tên khách */}
-                    <td className="px-1.5 py-0.5 text-[12px] text-zinc-300 font-medium truncate max-w-[150px]" title={tx.passengerName}>
-                      {tx.passengerName || <span className="text-zinc-700">—</span>}
-                    </td>
-
-                    {/* Giá vé */}
-                    <td className="px-1.5 py-0.5 text-right font-mono text-zinc-300 font-medium text-[12px]">
-                      <input
-                        type="text"
-                        value={tx.fare === 0 ? '0' : tx.fare.toLocaleString()}
-                        onChange={(e) => {
-                          const rawVal = e.target.value.replace(/\D/g, '');
-                          const numericVal = rawVal ? parseInt(rawVal, 10) : 0;
-                          handleUpdateFare(tx.stt, numericVal);
-                        }}
-                        className="w-24 bg-zinc-950 hover:bg-zinc-950/90 border border-zinc-850 focus:border-amber-500/60 rounded px-1 py-0 text-right font-mono text-[12px] text-zinc-300 focus:outline-none transition-colors"
-                        title="Nhập để thay đổi giá vé"
-                      />
-                    </td>
-
-                    {/* Giá bán */}
-                    <td className="px-1.5 py-0.5 text-right font-mono font-medium text-zinc-300 text-[12px]">
-                      {tx.sellingPrice > 0 ? tx.sellingPrice.toLocaleString() : '0'}
-                    </td>
-
-                    {/* Chiết khấu */}
-                    <td className="px-1 py-0.5 text-right font-mono min-w-[155px]">
-                      <div className="flex flex-col items-end justify-center gap-1 w-full">
-                        <div className="flex items-center gap-1.5 justify-end w-full">
-                          <input
-                            type="text"
-                            value={tx.originalDiscount === 0 ? '0' : tx.originalDiscount.toLocaleString()}
-                            onChange={(e) => {
-                              const rawVal = e.target.value.replace(/\D/g, '');
-                              const numericVal = rawVal ? parseInt(rawVal, 10) : 0;
-                              handleUpdateOriginalDiscount(tx.stt, numericVal);
-                            }}
-                            className="w-24 bg-zinc-950 hover:bg-zinc-950/90 border border-zinc-850 focus:border-amber-500/60 rounded px-1 py-0 text-right font-mono text-[12px] text-amber-500/90 focus:outline-none transition-colors"
-                            title="Nhập để thay đổi chiết khấu gốc từ ảnh hoặc hệ thống cũ"
-                          />
-                        </div>
-                        {isTicket && (tx.discount !== tx.originalDiscount || tx.useOriginalDiscount) && (
-                          <div className="flex items-center justify-end gap-1.5 w-full text-[11px]">
-                            {isTicket && tx.orderCode && tx.orderCode.trim() && (
-                              <button
-                                onClick={() => handleToggleUseOriginalDiscount(tx.stt)}
-                                className={`px-1 py-0 rounded text-[9px] font-bold uppercase transition-all flex items-center gap-0.5 border cursor-pointer select-none ${
-                                  tx.useOriginalDiscount 
-                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 font-extrabold' 
-                                    : 'bg-zinc-950 text-zinc-500 border-zinc-800 hover:text-zinc-400 hover:border-zinc-700'
-                                }`}
-                                title={tx.useOriginalDiscount ? "Đang sử dụng chiết khấu gốc. Bấm để tự động tính lại." : "Bấm để ép buộc lấy chiết khấu gốc"}
-                              >
-                                <span className={`w-1 h-1 rounded-full ${tx.useOriginalDiscount ? 'bg-amber-400 animate-pulse' : 'bg-zinc-600'}`} />
-                                {tx.useOriginalDiscount ? "Gốc" : "Auto"}
-                              </button>
-                            )}
-                            <span className={`font-black font-mono text-[12px] ${
-                              tx.useOriginalDiscount 
-                                ? 'text-amber-400' 
-                                : tx.discount > tx.originalDiscount 
-                                  ? 'text-emerald-400 font-extrabold' 
-                                  : 'text-rose-400 font-extrabold'
-                            }`}>
-                              {tx.discount !== 0 
-                                ? (tx.discount > 0 ? `+${tx.discount.toLocaleString()}` : tx.discount.toLocaleString()) 
-                                : '0'}
-                            </span>
-                          </div>
+                            className={`px-1.5 py-0 rounded text-[9px] font-bold transition-all duration-150 cursor-pointer border select-none inline-flex items-center gap-1 shadow-sm active:scale-95 ${
+                              tx.channel === 'FLIGHTVN'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300'
+                                : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300'
+                            }`}
+                            title="Nhấp để chuyển đổi giữa PARTNER và FLIGHTVN"
+                          >
+                            <span className={`w-1 h-1 rounded-full ${tx.channel === 'FLIGHTVN' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+                            {(() => {
+                              const chan = (tx.channel || 'PARTNER').trim().toUpperCase();
+                              if (chan === 'PARTNER') return 'PAR';
+                              if (chan === 'FLIGHTVN') return 'FLI';
+                              return chan;
+                            })()}
+                          </button>
+                        ) : (
+                          <span className="text-zinc-400 font-mono">-</span>
                         )}
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Nợ */}
-                    <td className="px-1.5 py-0.5 text-right font-mono font-medium text-zinc-400 text-[12px]">
-                      {tx.debt > 0 ? tx.debt.toLocaleString() : '0'}
-                    </td>
+                      {/* 5. Loại vé */}
+                      <td className="text-center">
+                        {tx.ticketType ? (
+                          <span className={`px-1 py-0 rounded text-[10px] font-bold ${
+                            tx.ticketType === 'Vé' 
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                              : tx.ticketType === 'Vé*' 
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              : tx.ticketType === 'Hoàn'
+                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                              : tx.ticketType === 'Void'
+                              ? 'bg-amber-400 text-zinc-950 font-extrabold border border-amber-500/30'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {tx.ticketType}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400">—</span>
+                        )}
+                      </td>
 
-                    {/* Có */}
-                    <td className="px-1.5 py-0.5 text-right font-mono font-semibold text-emerald-400 text-[12px]">
-                      {tx.credit > 0 
-                        ? `+${tx.credit.toLocaleString()}` 
-                        : tx.debt < 0 
-                          ? `+${Math.abs(tx.debt).toLocaleString()}` 
-                          : '0'}
-                    </td>
+                      {/* 6. Mã đơn hàng */}
+                      <td className="font-mono font-medium">{tx.orderCode || <span className="text-zinc-400 font-mono">-</span>}</td>
 
-                    {/* Lũy kế */}
-                    <td className="px-1.5 py-0.5 text-right font-mono">
-                      <div className="flex flex-col items-end justify-center">
-                        {/* Lũy kế cũ */}
-                        <span className={`font-medium text-[12px] ${
-                          tx.originalBalance !== undefined && tx.balance !== tx.originalBalance
-                            ? 'text-zinc-500 font-normal line-through text-[11px]'
-                            : tx.balance >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'
-                        }`}>
-                          {(tx.originalBalance !== undefined ? tx.originalBalance : tx.balance).toLocaleString()}
-                        </span>
-                        {/* Lũy kế mới (chỉ hiện khi khác lũy kế cũ) */}
-                        {tx.originalBalance !== undefined && tx.balance !== tx.originalBalance && (
-                          <span className={`text-[12px] font-black ${
-                            tx.balance >= 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`} title="Lũy kế mới tự động">
-                            {tx.balance.toLocaleString()}
+                      {/* 7. Số vé */}
+                      <td className="font-mono text-zinc-600" title={tx.ticketNumber}>{tx.ticketNumber || <span className="text-zinc-400">—</span>}</td>
+
+                      {/* 8. Hạng vé */}
+                      <td className="text-center font-mono font-black text-amber-600">
+                        <div className={`flex flex-col justify-center ${segs.length > 1 ? 'skyjet-segment-group' : ''}`}>
+                          {segs.map((s, sIdx) => (
+                            <React.Fragment key={sIdx}>
+                              {sIdx > 0 && <div className="border-t border-dashed border-zinc-200 my-0.5 w-full" />}
+                              <span className="block leading-tight py-0.5">
+                                {s.class || <span className="text-zinc-450">—</span>}
+                              </span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* 9. Hành trình */}
+                      <td className="font-mono font-bold">
+                        <div className={`flex flex-col ${segs.length > 1 ? 'skyjet-segment-group' : ''}`}>
+                          {segs.map((s, sIdx) => (
+                            <React.Fragment key={sIdx}>
+                              {sIdx > 0 && <div className="border-t border-dashed border-zinc-200 my-0.5 w-full" />}
+                              <span className="block leading-tight py-0.5">
+                                {s.route || <span className="text-zinc-450">—</span>}
+                              </span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* 10. Thời gian bay */}
+                      <td className="font-mono text-[10px] text-zinc-500" title={tx.flightTime}>
+                        <div className={`flex flex-col ${segs.length > 1 ? 'skyjet-segment-group' : ''}`}>
+                          {segs.map((s, sIdx) => (
+                            <React.Fragment key={sIdx}>
+                              {sIdx > 0 && <div className="border-t border-dashed border-zinc-200 my-0.5 w-full" />}
+                              <span className="block leading-tight py-0.5">
+                                {s.time || <span className="text-zinc-450">—</span>}
+                              </span>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* 11. Tên khách */}
+                      <td className="font-medium skyjet-col-passenger" title={tx.passengerName}>
+                        {tx.passengerName || <span className="text-zinc-400">—</span>}
+                      </td>
+
+                      {/* 12. Giá vé */}
+                      <td className="text-right font-mono font-medium">
+                        <input
+                          type="text"
+                          value={tx.fare === 0 ? '0' : tx.fare.toLocaleString()}
+                          disabled={isAgent}
+                          onChange={(e) => {
+                            const rawVal = e.target.value.replace(/\D/g, '');
+                            const numericVal = rawVal ? parseInt(rawVal, 10) : 0;
+                            handleUpdateFare(tx.stt, numericVal);
+                          }}
+                          className={`w-24 border rounded px-1 py-0.5 text-right font-mono text-[11px] focus:outline-none transition-colors ${
+                            isAgent 
+                              ? 'bg-zinc-100/70 border-zinc-200/50 text-zinc-500 cursor-not-allowed select-none' 
+                              : 'bg-white hover:bg-zinc-50 border-zinc-300 focus:border-amber-500 text-zinc-800'
+                          }`}
+                          title={isAgent ? "Không được phép thay đổi giá vé trên trang Agent" : "Nhập để thay đổi giá vé"}
+                        />
+                      </td>
+
+                      {/* 13. Giá bán */}
+                      <td className="text-right font-mono font-medium">
+                        {tx.sellingPrice > 0 ? tx.sellingPrice.toLocaleString() : '0'}
+                      </td>
+
+                      {/* 14. Chiết khấu */}
+                      <td className="text-right font-mono min-w-[155px]">
+                        <div className="flex flex-col items-end justify-center gap-1 w-full">
+                          <div className="flex items-center gap-1.5 justify-end w-full">
+                            <input
+                              type="text"
+                              value={tx.originalDiscount === 0 ? '0' : tx.originalDiscount.toLocaleString()}
+                              disabled={isAgent}
+                              onChange={(e) => {
+                                const rawVal = e.target.value.replace(/\D/g, '');
+                                const numericVal = rawVal ? parseInt(rawVal, 10) : 0;
+                                handleUpdateOriginalDiscount(tx.stt, numericVal);
+                              }}
+                              className={`w-24 border rounded px-1 py-0.5 text-right font-mono text-[11px] focus:outline-none transition-colors ${
+                                isAgent 
+                                  ? 'bg-zinc-100/70 border-zinc-200/50 text-zinc-500 cursor-not-allowed select-none' 
+                                  : 'bg-white hover:bg-zinc-50 border-zinc-300 focus:border-amber-500 text-amber-600'
+                              }`}
+                              title={isAgent ? "Không được phép thay đổi chiết khấu trên trang Agent" : "Nhập để thay đổi chiết khấu gốc từ ảnh hoặc hệ thống cũ"}
+                            />
+                          </div>
+                          {isTicket && (tx.discount !== tx.originalDiscount || tx.useOriginalDiscount) && (
+                            <div className="flex items-center justify-end gap-1.5 w-full text-[10px]">
+                              {isTicket && tx.orderCode && tx.orderCode.trim() && (
+                                <button
+                                  disabled={isAgent}
+                                  onClick={() => handleToggleUseOriginalDiscount(tx.stt)}
+                                  className={`px-1 py-0 rounded text-[9px] font-bold uppercase transition-all flex items-center gap-0.5 border select-none ${
+                                    isAgent
+                                      ? 'bg-zinc-100/50 text-zinc-400 border-zinc-200/50 cursor-not-allowed'
+                                      : tx.useOriginalDiscount 
+                                        ? 'cursor-pointer bg-amber-500/10 text-amber-600 border-amber-500/30 font-extrabold' 
+                                        : 'cursor-pointer bg-zinc-50 text-zinc-500 border-zinc-200 hover:text-zinc-650 hover:border-zinc-350'
+                                  }`}
+                                  title={isAgent ? "Không thể chuyển chế độ chiết khấu trên trang Agent" : (tx.useOriginalDiscount ? "Đang sử dụng chiết khấu gốc. Bấm để tự động tính lại." : "Bấm để ép buộc lấy chiết khấu gốc")}
+                                >
+                                  <span className={`w-1 h-1 rounded-full ${tx.useOriginalDiscount && !isAgent ? 'bg-amber-500' : 'bg-zinc-400'}`} />
+                                  {tx.useOriginalDiscount ? "Gốc" : "Auto"}
+                                </button>
+                              )}
+                              <span className={`font-black font-mono text-[11px] ${
+                                tx.useOriginalDiscount 
+                                  ? 'text-amber-600' 
+                                  : tx.discount > tx.originalDiscount 
+                                    ? 'text-emerald-600 font-extrabold' 
+                                    : 'text-rose-600 font-extrabold'
+                              }`}>
+                                {tx.discount !== 0 
+                                  ? (tx.discount > 0 ? `+${tx.discount.toLocaleString()}` : tx.discount.toLocaleString()) 
+                                  : '0'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 15. Nợ */}
+                      <td className="text-right font-mono font-medium text-zinc-700">
+                        {tx.debt > 0 ? tx.debt.toLocaleString() : '0'}
+                      </td>
+
+                      {/* 16. Có */}
+                      <td className="text-right font-mono font-semibold text-emerald-600">
+                        {tx.credit > 0 
+                          ? `+${tx.credit.toLocaleString()}` 
+                          : tx.debt < 0 
+                            ? `+${Math.abs(tx.debt).toLocaleString()}` 
+                            : '0'}
+                      </td>
+
+                      {/* 17. Lũy kế */}
+                      <td className="text-right font-mono">
+                        <div className="flex flex-col items-end justify-center">
+                          {/* Lũy kế cũ */}
+                          <span className={`font-medium text-[11px] ${
+                            tx.originalBalance !== undefined && tx.balance !== tx.originalBalance
+                              ? 'text-zinc-400 font-normal line-through text-[10px]'
+                              : tx.balance >= 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'
+                          }`}>
+                            {(tx.originalBalance !== undefined ? tx.originalBalance : tx.balance).toLocaleString()}
+                          </span>
+                          {/* Lũy kế mới (chỉ hiện khi khác lũy kế cũ) */}
+                          {tx.originalBalance !== undefined && tx.balance !== tx.originalBalance && (
+                            <span className={`text-[11px] font-black ${
+                              tx.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                            }`} title="Lũy kế mới tự động">
+                              {tx.balance.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 18. Phân tích Button */}
+                      <td className="text-center">
+                        {isTicket && tx.orderCode && tx.orderCode.trim() ? (
+                          <button
+                            onClick={() => handleInspectRow(tx)}
+                            className="p-0.5 hover:bg-zinc-150 rounded text-amber-600 hover:text-amber-500 transition-colors cursor-pointer flex items-center justify-center mx-auto"
+                            title="Xem chi tiết phân tích tự động"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <span className="text-zinc-455 cursor-not-allowed flex items-center justify-center mx-auto" title={!isTicket ? "Chỉ hỗ trợ giao dịch vé" : "Không có Mã Đơn Hàng"}>
+                            <Info className="w-3.5 h-3.5 opacity-35" />
                           </span>
                         )}
-                      </div>
-                    </td>
-
-                    {/* Phân tích Button */}
-                    <td className="px-1.5 py-0.5 text-center">
-                      {isTicket && tx.orderCode && tx.orderCode.trim() ? (
-                        <button
-                          onClick={() => handleInspectRow(tx)}
-                          className="p-0.5 hover:bg-zinc-800 rounded text-amber-400 hover:text-amber-300 transition-colors cursor-pointer flex items-center justify-center mx-auto"
-                          title="Xem chi tiết phân tích tự động"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <span className="text-zinc-600 cursor-not-allowed flex items-center justify-center mx-auto" title={!isTicket ? "Chỉ hỗ trợ giao dịch vé" : "Không có Mã Đơn Hàng"}>
-                          <Info className="w-3.5 h-3.5 opacity-35" />
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
             <tfoot className="sticky bottom-0 z-10 text-[11px] font-bold">
-              <tr className="text-zinc-400">
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 text-center font-bold font-mono">
+              <tr>
+                <td className="text-center font-bold font-mono">
                   {transactions.length}
                 </td>
-                <td colSpan={4} className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5"></td>
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 font-mono text-zinc-300 font-bold text-left">
+                <td colSpan={4}></td>
+                <td className="font-mono font-bold text-left">
                   {Array.from(new Set(transactions.map(t => t.orderCode).filter(c => c && c.trim() !== ''))).length}
                 </td>
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 font-mono text-zinc-300 font-bold text-left">
+                <td className="font-mono font-bold text-left">
                   {Array.from(new Set(transactions.filter(t => t.orderCode && t.orderCode.trim() !== '').map(t => t.ticketNumber).filter(n => n && n.trim() !== ''))).length}
                 </td>
-                <td colSpan={6} className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5"></td>
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 text-right font-mono text-amber-400">
+                <td colSpan={6}></td>
+                <td className="text-right font-mono text-amber-600">
                   {totalDiscounts !== totalOriginalDiscounts ? (
                     <span className="inline-flex gap-1 items-center justify-end w-full">
-                      <span className="text-zinc-500 line-through text-[9px] font-normal">+{totalOriginalDiscounts.toLocaleString()}</span>
-                      <span className="text-rose-400 font-extrabold">+{totalDiscounts.toLocaleString()}</span>
+                      <span className="text-zinc-400 line-through text-[9px] font-normal">+{totalOriginalDiscounts.toLocaleString()}</span>
+                      <span className="text-rose-600 font-extrabold">+{totalDiscounts.toLocaleString()}</span>
                     </span>
                   ) : (
                     `+${totalDiscounts.toLocaleString()}`
                   )}
                 </td>
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 text-right font-mono text-zinc-200">
+                <td className="text-right font-mono text-zinc-700">
                   {totalSelling.toLocaleString()}
                 </td>
-                <td className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5 text-right font-mono text-emerald-400">
+                <td className="text-right font-mono text-emerald-600">
                   +{totalCredit.toLocaleString()}
                 </td>
-                <td colSpan={2} className="sticky bottom-0 bg-zinc-900 z-10 border-t border-zinc-800 px-1.5 py-1.5"></td>
+                <td colSpan={2}></td>
               </tr>
             </tfoot>
           </table>
