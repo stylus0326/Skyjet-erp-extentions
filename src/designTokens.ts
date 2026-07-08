@@ -16,10 +16,10 @@ export const designTokens = {
   },
 
   // Panels & Containers
-  card: "bg-white border border-slate-200/80 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.03),0_2px_4px_-2px_rgba(0,0,0,0.03)] p-6",
+  card: "bg-white border border-slate-200/80 rounded-xl p-6",
   
   // Table Styling
-  tableContainer: "bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-sm",
+  tableContainer: "bg-white border border-slate-200/80 rounded-xl overflow-hidden",
   tableHeader: "bg-slate-50/75 border-b border-slate-200/80 text-[10px] font-bold text-slate-500 uppercase tracking-wider",
   tableHeaderCell: "px-3 py-2.5 font-bold uppercase tracking-wider text-slate-500 text-[10px]",
   tableRow: "hover:bg-slate-50/50 transition-colors border-b border-slate-100",

@@ -4,7 +4,11 @@ import { extensionFiles } from '../data';
 import { iconBase64 } from '../iconData';
 import { Download, Loader2, Check } from 'lucide-react';
 
-export default function FloatingDownloadButton() {
+interface FloatingDownloadButtonProps {
+  variant?: 'floating' | 'inline';
+}
+
+export default function FloatingDownloadButton({ variant = 'floating' }: FloatingDownloadButtonProps) {
   const [downloading, setDownloading] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -81,6 +85,32 @@ export default function FloatingDownloadButton() {
       setDownloading(false);
     }
   };
+
+  if (variant === 'inline') {
+    return (
+      <button
+        onClick={handleDownloadZip}
+        disabled={downloading}
+        className={`w-full flex items-center justify-between p-2 rounded-lg bg-zinc-950/20 hover:bg-zinc-950/30 transition-colors text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none`}
+        title="Tải Tiện ích Chrome (.ZIP)"
+      >
+        <span>Tải Extension (.ZIP)</span>
+        <div className={`w-6 h-6 rounded-[6px] flex items-center justify-center text-white transition-colors duration-200 ${
+          ready 
+            ? 'bg-emerald-500 hover:bg-emerald-600' 
+            : 'bg-gradient-to-r from-indigo-600 to-sky-500 hover:from-indigo-700 hover:to-sky-600'
+        }`}>
+          {downloading ? (
+            <Loader2 size={12} className="animate-spin text-white" />
+          ) : ready ? (
+            <Check size={12} className="text-white" />
+          ) : (
+            <Download size={12} className="text-white" />
+          )}
+        </div>
+      </button>
+    );
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

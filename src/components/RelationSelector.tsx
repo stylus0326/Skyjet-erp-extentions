@@ -124,11 +124,11 @@ export function RelationSelector({ selectedCampaignId, onChange, id, hideExpired
                   setIsOpen(false);
                 }}
                 className={`flex items-center justify-between w-full px-3 py-2 text-xs text-left rounded hover:bg-zinc-900 transition-colors cursor-pointer ${
-                  isSelected ? 'text-emerald-400 bg-zinc-900/50 font-semibold' : 'text-zinc-300'
+                  isSelected ? 'text-[#8b6ff7] bg-zinc-900/50 font-semibold' : 'text-zinc-300'
                 }`}
               >
                 <span>#{c.id} - {expired ? '[HẾT HẠN] ' : ''}{c.name} ({c.carrier})</span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0 ml-2" />}
+                {isSelected && <Check className="w-3.5 h-3.5 text-[#8b6ff7] shrink-0 ml-2" />}
               </button>
             );
           })}

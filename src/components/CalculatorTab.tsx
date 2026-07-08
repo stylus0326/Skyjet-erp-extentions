@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Campaign, CampaignBlackoutPeriod, CampaignDetail, Policy, Threshold, Airport } from '../types';
 import { CustomSelect } from './CustomSelect';
+import { CustomButton } from './CustomButton';
 
 declare const chrome: any;
 
@@ -3030,7 +3031,7 @@ export function CalculatorTab() {
       </div>
 
       {/* Main Table Panel */}
-      <div className="bg-white border border-[#cbd5e1] rounded-md overflow-hidden shadow-sm flex flex-col min-h-0 flex-1 relative">
+      <div className="bg-white border border-[#cbd5e1] rounded-md overflow-hidden flex flex-col min-h-0 flex-1 relative">
 
         {/* Responsive Table Scroll container */}
         <div id="skyjet-transactions-scroll-container" className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
@@ -3515,19 +3516,19 @@ export function CalculatorTab() {
               </div>
 
               <div className="pt-3 border-t border-zinc-900 flex items-center justify-end gap-2 bg-zinc-900/5">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold border border-zinc-850 hover:bg-zinc-900 text-zinc-400 rounded-xl cursor-pointer transition-colors"
+                  variant="secondary"
                 >
                   Hủy
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-zinc-950 rounded-xl cursor-pointer transition-all shadow-md active:scale-95"
+                  variant="primary"
                 >
                   Xử Lý & Import
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>
@@ -3614,8 +3615,8 @@ export function CalculatorTab() {
               {inspectorTab === 'info' && inspectorResult.hasChecked && (
                 <div className={`border rounded-lg p-3.5 space-y-3.5 ${
                   inspectorResult.simulatedDiscount > 0 
-                    ? 'bg-emerald-50 border-emerald-200 shadow-sm' 
-                    : 'bg-rose-50 border-rose-200 shadow-sm'
+                    ? 'bg-emerald-50 border-emerald-200' 
+                    : 'bg-rose-50 border-rose-200'
                 }`}>
                   <div className="flex items-center justify-between border-b border-zinc-200 pb-2">
                     <div className="flex items-center space-x-1.5">
@@ -3641,7 +3642,7 @@ export function CalculatorTab() {
                   {inspectorResult.primaryReason && 
                    inspectorResult.simulatedDiscount === 0 && 
                    (!inspectorResult.appliedCampaigns || inspectorResult.appliedCampaigns.length === 0) && (
-                    <div className="text-[11px] p-2.5 rounded border leading-relaxed font-semibold bg-white border-rose-200 text-rose-900 shadow-sm">
+                    <div className="text-[11px] p-2.5 rounded border leading-relaxed font-semibold bg-white border-rose-200 text-rose-900">
                       {inspectorResult.primaryReason}
                     </div>
                   )}
@@ -3804,7 +3805,7 @@ export function CalculatorTab() {
                               })()}
 
                               {isPenalized && camp.thresholdReason && (
-                                <div className="bg-white border border-rose-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold text-rose-900 shadow-sm">
+                                <div className="bg-white border border-rose-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold text-rose-900">
                                   ✗ Không nhận được chiết khấu này: {camp.thresholdReason}
                                 </div>
                               )}
@@ -3813,7 +3814,7 @@ export function CalculatorTab() {
                         })}
 
                         {inspectorResult.skippedSegments && inspectorResult.skippedSegments.map((seg, idx) => (
-                          <div key={`seg-${idx}`} className="bg-rose-50 border border-rose-200 rounded-lg p-3 space-y-2.5 text-zinc-900 shadow-sm flex flex-col h-full">
+                          <div key={`seg-${idx}`} className="bg-rose-50 border border-rose-200 rounded-lg p-3 space-y-2.5 text-zinc-900 flex flex-col h-full">
                             <div className="flex justify-between items-center text-[11px]">
                               <div className="flex items-center space-x-1.5">
                                 <span className="px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-rose-100 text-rose-800 border border-rose-200">
@@ -3828,7 +3829,7 @@ export function CalculatorTab() {
 
                             <hr className="border-t border-rose-200/60" />
 
-                            <div className="bg-white border border-rose-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold text-rose-900 shadow-sm space-y-1">
+                            <div className="bg-white border border-rose-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold text-rose-900 space-y-1">
                               <div className="text-left">{seg.reason}</div>
                               {seg.campaignName && (
                                 <div className="text-zinc-450 text-[9px] font-normal italic mt-1 text-left">
@@ -3842,7 +3843,7 @@ export function CalculatorTab() {
                               const campRules = details.filter(d => d.campaign_id === seg.campaignId);
                               if (campRules.length === 0) return null;
                               return (
-                                <div className="mt-2.5 border border-rose-200 rounded-lg overflow-hidden bg-white shadow-xs flex-grow flex flex-col">
+                                <div className="mt-2.5 border border-rose-200 rounded-lg overflow-hidden bg-white flex-grow flex flex-col">
                                   <div className="bg-rose-100/50 px-2.5 py-1.5 text-[9px] font-bold text-rose-950 uppercase border-b border-rose-200 text-left">
                                     Bảng quy định chiết khấu của chiến dịch:
                                   </div>

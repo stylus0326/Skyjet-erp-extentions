@@ -6,5 +6,5 @@ coverage/
 *.log
 .env*
 !.env.example
-scratch/puppeteer-user-data/
+scratch/
 .claude/

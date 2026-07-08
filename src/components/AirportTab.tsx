@@ -7,6 +7,7 @@ import {
   X, Check, ArrowUpDown, RefreshCw, Plane, Globe
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { CustomButton } from './CustomButton';
 
 export function AirportTab() {
   const [airports, setAirports] = useState<Airport[]>([]);
@@ -43,7 +44,15 @@ export function AirportTab() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
+    if (!force) {
+      const cached = localStorage.getItem('skyjet_cache_airports');
+      if (cached) {
+        setAirports(JSON.parse(cached));
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -52,7 +61,9 @@ export function AirportTab() {
         .select('*');
 
       if (err) throw err;
-      setAirports((data as Airport[]) || []);
+      const list = (data as Airport[]) || [];
+      setAirports(list);
+      localStorage.setItem('skyjet_cache_airports', JSON.stringify(list));
     } catch (err: any) {
       console.error('Error fetching airports:', err);
       setError(err?.message || 'Failed to fetch airports.');
@@ -62,7 +73,30 @@ export function AirportTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
+  }, []);
+
+  useEffect(() => {
+    const handleSearch = (e: Event) => {
+      const query = (e as CustomEvent).detail;
+      setSearchQuery(query);
+    };
+    const handleRefresh = () => {
+      fetchData(true);
+    };
+    const handleAdd = () => {
+      openAddModal();
+    };
+
+    window.addEventListener('skyjet-search', handleSearch);
+    window.addEventListener('skyjet-refresh', handleRefresh);
+    window.addEventListener('skyjet-add', handleAdd);
+
+    return () => {
+      window.removeEventListener('skyjet-search', handleSearch);
+      window.removeEventListener('skyjet-refresh', handleRefresh);
+      window.removeEventListener('skyjet-add', handleAdd);
+    };
   }, []);
 
   const handleSort = (field: keyof Airport) => {
@@ -116,7 +150,7 @@ export function AirportTab() {
       if (err) throw err;
 
       showToast(`Đã xóa sân bay #${deleteId} thành công.`);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error deleting airport:', err);
       showToast(err?.message || 'Không thể xóa sân bay.', 'error');
@@ -179,7 +213,7 @@ export function AirportTab() {
         showToast('Airport created successfully');
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error saving airport:', err);
       showToast(err?.message || 'Error occurred while saving.', 'error');
@@ -236,39 +270,6 @@ export function AirportTab() {
         </div>
       )}
 
-      {/* Control Panel */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between bg-zinc-900/10 p-2 rounded-md border border-zinc-900/50 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-            <Search className="h-3.5 w-3.5 text-zinc-500" />
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm IATA, thành phố, tên, thẻ..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-8 pr-2.5 py-1 border border-zinc-800 rounded bg-zinc-900/30 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 text-xs transition-all text-zinc-100"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <button
-            onClick={fetchData}
-            className="p-1.5 border border-zinc-850 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors bg-zinc-900/50 flex items-center justify-center cursor-pointer"
-            title="Tải lại"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          
-          <button
-            onClick={openAddModal}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded text-xs font-bold transition-all shadow active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Thêm Sân bay
-          </button>
-        </div>
-      </div>
 
       {/* Error Message */}
       {error && (
@@ -278,7 +279,7 @@ export function AirportTab() {
             <h4 className="font-semibold text-sm">Lỗi truy cập cơ sở dữ liệu</h4>
             <p className="text-xs text-rose-300 mt-1">{error}</p>
             <button 
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               className="mt-2 text-xs font-semibold text-rose-400 hover:text-rose-200 flex items-center gap-1 underline cursor-pointer"
             >
               Thử lại
@@ -288,7 +289,7 @@ export function AirportTab() {
       )}
 
       {/* Table Area */}
-      <div className="bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-zinc-400 animate-spin mx-auto" />
@@ -303,106 +304,99 @@ export function AirportTab() {
             <p className="text-xs text-zinc-500 leading-relaxed">
               {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo bản ghi sân bay đầu tiên của bạn tại đây!"}
             </p>
-            {!searchQuery && (
-              <button 
-                onClick={openAddModal}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-100 hover:bg-zinc-800 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 cursor-pointer"
-              >
-                Thêm Sân bay
-              </button>
-            )}
+
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="minimal-table">
               <thead>
-                <tr className="bg-zinc-900/40 border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                  <th onClick={() => handleSort('id')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                <tr>
+                  <th onClick={() => handleSort('id')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       ID
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('iata')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('iata')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Mã IATA
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('airport_name')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('airport_name')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Tên Sân bay
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('city')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('city')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Thành phố
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('country')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('country')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Quốc gia
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('continent')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('continent')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Châu lục
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th className="px-1.5 py-1 text-zinc-400 font-semibold">Thẻ (Tags)</th>
-                  <th className="px-1.5 py-1 text-center text-zinc-400 font-semibold">Hành động</th>
+                  <th>Thẻ (Tags)</th>
+                  <th className="text-center">Hành động</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-900 text-[11px] text-zinc-300">
+              <tbody className="divide-y divide-slate-100 text-[11px] text-slate-705">
                 {sortedAirports.map((airport) => (
-                  <tr key={airport.id} className="hover:bg-zinc-900/30 transition-colors border-b border-zinc-900/50">
-                    <td className="px-1.5 py-0.5 font-mono font-bold text-xs text-zinc-500">
+                  <tr key={airport.id}>
+                    <td className="font-mono font-bold text-xs text-slate-400">
                       #{airport.id}
                     </td>
-                    <td className="px-1.5 py-0.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-zinc-900 text-zinc-200 border border-zinc-800">
+                    <td>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-50 text-slate-700 border border-slate-200">
                         {airport.iata || '—'}
                       </span>
                     </td>
-                    <td className="px-1.5 py-0.5 font-semibold text-zinc-100">
+                    <td className="font-semibold text-slate-800">
                       {airport.airport_name || '—'}
                     </td>
-                    <td className="px-1.5 py-0.5 text-zinc-300">
+                    <td className="text-slate-600">
                       {airport.city || '—'}
                     </td>
-                    <td className="px-1.5 py-0.5 text-zinc-300">
+                    <td className="text-slate-600">
                       {airport.country || '—'}
                     </td>
-                    <td className="px-1.5 py-0.5 text-zinc-400 text-xs">
+                    <td className="text-slate-550 text-xs">
                       {airport.continent ? (
-                        <span className="flex items-center gap-1 text-zinc-400">
-                          <Globe className="w-3.5 h-3.5 text-zinc-500" />
+                        <span className="flex items-center gap-1 text-slate-550">
+                          <Globe className="w-3.5 h-3.5 text-slate-400" />
                           {airport.continent}
                         </span>
                       ) : '—'}
                     </td>
-                    <td className="px-1.5 py-0.5">
+                    <td>
                       <div className="flex flex-wrap gap-1 max-w-[150px]">
                         {airport.tags && airport.tags.length > 0 ? (
                           airport.tags.map((tag, idx) => (
-                            <span key={idx} className="inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-zinc-800 border border-zinc-700/50 text-zinc-300 rounded-md">
+                            <span key={idx} className="inline-block px-1.5 py-0.5 text-[10px] font-semibold bg-slate-50 border border-slate-200 text-slate-600 rounded">
                               {tag}
                             </span>
                           ))
                         ) : (
-                          <span className="text-zinc-600 text-xs italic">—</span>
+                          <span className="text-slate-400 text-xs italic">—</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-1.5 py-0.5">
+                    <td>
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => openEditModal(airport)}
-                          className="p-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer"
+                          className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
                           title="Sửa"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -509,19 +503,19 @@ export function AirportTab() {
 
               {/* Modal Footer */}
               <div className="mt-4 pt-3 border-t border-zinc-850 flex items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   {isEditMode ? 'Lưu thay đổi' : 'Tạo mới'}
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>

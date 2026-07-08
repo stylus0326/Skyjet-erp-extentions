@@ -11,6 +11,7 @@ import {
   ChevronDown, ChevronRight, List, LayoutGrid
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { CustomButton } from './CustomButton';
 
 const parseBulkTags = (
   input: string,
@@ -272,7 +273,16 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchAirportTags = async () => {
+  const fetchAirportTags = async (force = false) => {
+    if (!force) {
+      const cached = localStorage.getItem('skyjet_cache_airport_tags');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setAirportIatas(parsed.iatas || []);
+        setAirportTags(parsed.tags || []);
+        return;
+      }
+    }
     try {
       const { data, error: err } = await supabase.from('airports').select('tags, iata');
       if (err) {
@@ -303,15 +313,28 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
             });
           }
         });
-        setAirportIatas(Array.from(iatas).sort());
-        setAirportTags(Array.from(normalTags).sort());
+        const iatasList = Array.from(iatas).sort();
+        const tagsList = Array.from(normalTags).sort();
+        setAirportIatas(iatasList);
+        setAirportTags(tagsList);
+        localStorage.setItem('skyjet_cache_airport_tags', JSON.stringify({ iatas: iatasList, tags: tagsList }));
       }
     } catch (err) {
       console.error('Error parsing airport tags:', err);
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
+    if (!force) {
+      const cachedDetails = localStorage.getItem('skyjet_cache_details');
+      const cachedCampaignsMap = localStorage.getItem('skyjet_cache_details_campaigns_map');
+      if (cachedDetails && cachedCampaignsMap) {
+        setDetails(JSON.parse(cachedDetails));
+        setCampaignsMap(JSON.parse(cachedCampaignsMap));
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -335,9 +358,12 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
           cMap[c.id] = c;
         });
         setCampaignsMap(cMap);
+        localStorage.setItem('skyjet_cache_details_campaigns_map', JSON.stringify(cMap));
       }
 
-      setDetails((dData as CampaignDetail[]) || []);
+      const detailsList = (dData as CampaignDetail[]) || [];
+      setDetails(detailsList);
+      localStorage.setItem('skyjet_cache_details', JSON.stringify(detailsList));
     } catch (err: any) {
       console.error('Error fetching campaign details:', err);
       setError(err?.message || 'Failed to fetch campaign details.');
@@ -347,8 +373,33 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
   };
 
   useEffect(() => {
-    fetchData();
-    fetchAirportTags();
+    fetchData(false);
+    fetchAirportTags(false);
+  }, []);
+
+  useEffect(() => {
+    const handleSearch = (e: Event) => {
+      const query = (e as CustomEvent).detail;
+      setSearchQuery(query);
+    };
+    const handleRefresh = () => {
+      fetchData(true);
+      fetchAirportTags(true);
+    };
+    const handleAdd = (e: Event) => {
+      const mode = (e as CustomEvent).detail || 'standard';
+      openAddModal(mode);
+    };
+
+    window.addEventListener('skyjet-search', handleSearch);
+    window.addEventListener('skyjet-refresh', handleRefresh);
+    window.addEventListener('skyjet-add', handleAdd);
+
+    return () => {
+      window.removeEventListener('skyjet-search', handleSearch);
+      window.removeEventListener('skyjet-refresh', handleRefresh);
+      window.removeEventListener('skyjet-add', handleAdd);
+    };
   }, []);
 
   const handleSort = (field: keyof CampaignDetail) => {
@@ -644,7 +695,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
       showToast(`Cập nhật thành công nhóm thẻ cho ${colEditGroupDetails.length} dòng thuộc cột "${colEditName}"`);
       setIsColModalOpen(false);
-      await fetchData();
+      await fetchData(true);
     } catch (err: any) {
       console.error('Error saving column tags:', err);
       showToast(err?.message || 'Lỗi xảy ra khi lưu thẻ nhóm.', 'error');
@@ -668,7 +719,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       if (err) throw err;
 
       showToast(`Đã xóa chi tiết chiến dịch #${deleteId} thành công.`);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error deleting campaign detail:', err);
       showToast(err?.message || 'Không thể xóa chi tiết chiến dịch.', 'error');
@@ -764,7 +815,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
           : `Đã nhân bản/thêm thành công ${payloads.length} chi tiết chiến dịch từ ma trận.`
         );
         setIsModalOpen(false);
-        fetchData();
+        fetchData(true);
       } catch (err: any) {
         console.error('Error saving campaign details matrix:', err);
         showToast(err?.message || 'Lỗi xảy ra khi lưu ma trận chi tiết chiến dịch.', 'error');
@@ -842,7 +893,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
         showToast(isDuplicateMode ? 'Đã nhân bản chi tiết chiến dịch thành công' : 'Campaign detail created successfully');
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error saving campaign detail:', err);
       showToast(err?.message || 'Error occurred while saving.', 'error');
@@ -912,7 +963,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       showToast('Đã tạo mới chi tiết vé thành công và giữ lại các thẻ!', 'success');
       
       // Update the main listing
-      fetchData();
+      fetchData(true);
       
       // Transition out of edit mode to create mode, reset ID to prevent edits,
       // but KEEP all the form tags and input fields for further quick additions.
@@ -1008,47 +1059,6 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
         </div>
       )}
 
-      {/* Control Panel */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between bg-zinc-900/10 p-2 rounded-md border border-zinc-900/50 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-            <Search className="h-3.5 w-3.5 text-zinc-500" />
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm hạng vé, chiến dịch, tỷ lệ..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-8 pr-2.5 py-1 border border-zinc-800 rounded bg-zinc-900/30 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 text-xs transition-all text-zinc-100"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <button
-            onClick={fetchData}
-            className="p-1.5 border border-zinc-850 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors bg-zinc-900/50 flex items-center justify-center cursor-pointer"
-            title="Tải lại"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          
-          <button
-            onClick={() => openAddModal('standard')}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded text-xs font-bold transition-all shadow active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Thêm Chi tiết
-          </button>
-
-          <button
-            onClick={() => openAddModal('matrix')}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1 bg-zinc-900 border border-zinc-800 text-zinc-100 hover:bg-zinc-800 rounded text-xs font-bold transition-all shadow active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Thêm Ma trận
-          </button>
-        </div>
-      </div>
 
       {/* Error Message */}
       {error && (
@@ -1058,7 +1068,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
             <h4 className="font-semibold text-sm">Lỗi truy cập cơ sở dữ liệu</h4>
             <p className="text-xs text-rose-300 mt-1">{error}</p>
             <button 
-              onClick={fetchData}
+              onClick={() => { fetchData(true); fetchAirportTags(true); }}
               className="mt-2 text-xs font-semibold text-rose-400 hover:text-rose-200 flex items-center gap-1 underline cursor-pointer"
             >
               Thử lại
@@ -1068,104 +1078,89 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       )}
 
       {/* Table Area */}
-      <div className="bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center space-y-4">
-            <RefreshCw className="w-8 h-8 text-zinc-400 animate-spin mx-auto" />
-            <p className="text-sm text-zinc-400 font-medium">Đang tải cấu hình chi tiết từ Supabase...</p>
+            <RefreshCw className="w-8 h-8 text-slate-400 animate-spin mx-auto" />
+            <p className="text-sm text-slate-400 font-medium">Đang tải cấu hình chi tiết từ Supabase...</p>
           </div>
         ) : sortedDetails.length === 0 ? (
           <div className="p-12 text-center max-w-sm mx-auto space-y-3">
-            <div className="w-12 h-12 bg-zinc-900/50 text-zinc-500 rounded-full flex items-center justify-center mx-auto border border-zinc-850">
+            <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto border border-slate-200">
               <Layers className="w-6 h-6" />
             </div>
-            <h3 className="text-zinc-200 font-semibold text-base">Không tìm thấy chi tiết chiến dịch nào</h3>
-            <p className="text-xs text-zinc-500 leading-relaxed">
+            <h3 className="text-slate-700 font-semibold text-base">Không tìm thấy chi tiết chiến dịch nào</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
               {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo chi tiết chiến dịch (mức giảm giá, phân hạng vé) đầu tiên của bạn!"}
             </p>
-            {!searchQuery && (
-              <div className="flex gap-2 justify-center">
-                <button 
-                  onClick={() => openAddModal('standard')}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-100 hover:bg-zinc-800 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 cursor-pointer"
-                >
-                  Thêm Chi tiết
-                </button>
-                <button 
-                  onClick={() => openAddModal('matrix')}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-100 hover:bg-zinc-800 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 cursor-pointer"
-                >
-                  Thêm Ma trận
-                </button>
-              </div>
-            )}
+
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="minimal-table">
               {viewMode === 'list' && (
                 <thead>
-                  <tr className="bg-zinc-900/40 border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                    <th className="px-1.5 py-1 w-16 text-center select-none">STT</th>
-                    <th className="px-1.5 py-1 text-zinc-400 font-semibold">Hạng đặt chỗ (Booking Class)</th>
-                    <th onClick={() => handleSort('discount_base')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <tr>
+                    <th className="w-16 text-center select-none">STT</th>
+                    <th>Hạng đặt chỗ (Booking Class)</th>
+                    <th onClick={() => handleSort('discount_base')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Loại giảm giá (Base)
-                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleSort('discount_percentage')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleSort('discount_percentage')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Tỷ lệ (%)
-                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleSort('amount')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleSort('amount')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Số tiền giảm
-                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleSort('index')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleSort('index')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Index (Thứ tự)
-                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="px-1.5 py-1 text-zinc-400 font-semibold">Thẻ nhóm</th>
-                    <th className="px-1.5 py-1 text-center text-zinc-400 font-semibold">Hành động</th>
+                    <th>Thẻ nhóm</th>
+                    <th className="text-center">Hành động</th>
                   </tr>
                 </thead>
               )}
-              <tbody className="divide-y divide-zinc-900 text-[11px] text-zinc-300">
+              <tbody className="divide-y divide-slate-100 text-[11px] text-slate-600">
                 {campaignGroups.map((group, groupIdx) => {
                   const linkedCampaign = campaignsMap[group.campaignId];
                   const isExpanded = expandedCampaigns[group.campaignId] !== false;
                   const detailsCount = group.details.length;
                   const isEvenGroup = groupIdx % 2 === 0;
-                  const groupBgClass = isEvenGroup ? 'bg-zinc-900/30' : 'bg-zinc-950/20';
+                  const groupBgClass = isEvenGroup ? 'bg-[var(--bg-canvas)]/30' : 'bg-[var(--bg-card)]';
 
                   return (
                     <React.Fragment key={group.campaignId}>
                       {/* Separate campaign header row */}
                       <tr 
                         onClick={() => toggleCampaign(group.campaignId)}
-                        className={`${groupBgClass} border-y border-zinc-850 hover:bg-zinc-800/40 cursor-pointer transition-colors select-none`}
+                        className={`${groupBgClass} border-y border-slate-200 hover:bg-slate-100/50 cursor-pointer transition-colors select-none`}
                       >
-                        <td colSpan={8} className="px-1.5 py-0.5 pl-4">
+                        <td colSpan={8} className="py-2 px-3 pl-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-emerald-400" />
+                                <ChevronDown className="w-4 h-4 text-slate-600" />
                               ) : (
-                                <ChevronRight className="w-4 h-4 text-zinc-500" />
+                                <ChevronRight className="w-4 h-4 text-slate-400" />
                               )}
-                              <span className="font-bold text-zinc-100 text-sm">
+                              <span className="font-bold text-slate-800 text-sm">
                                 {linkedCampaign ? linkedCampaign.name : 'Chiến dịch không xác định'}
                               </span>
                               {linkedCampaign?.carrier && (
                                 <div className="flex items-center gap-1.5">
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-800 border border-zinc-700 text-zinc-400">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600">
                                     Hãng bay: {linkedCampaign.carrier}
                                   </span>
                                   <button
@@ -1174,7 +1169,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                       e.stopPropagation();
                                       openEditCampaignMatrixModal(group.campaignId, group.details);
                                     }}
-                                    className="p-1 rounded hover:bg-zinc-800 text-amber-500 hover:text-amber-300 transition-colors cursor-pointer"
+                                    className="p-1 rounded hover:bg-slate-100 text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
                                     title="Sửa toàn bộ chiến dịch theo ma trận"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
@@ -1182,7 +1177,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                 </div>
                               )}
                             </div>
-                            <div className="text-[10px] text-zinc-500 font-bold bg-zinc-900 px-2 py-0.5 rounded-full border border-zinc-800/60">
+                            <div className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
                               {detailsCount} chi tiết vé
                             </div>
                           </div>
@@ -1193,23 +1188,23 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                       {isExpanded && (
                         viewMode === 'matrix' ? (
                           <tr>
-                            <td colSpan={8} className="px-1.5 py-0.5 bg-zinc-950/40 border-b border-zinc-900/50">
+                            <td colSpan={8} className="py-3 px-4 bg-slate-50/20 border-b border-slate-100">
                               <div className="max-w-5xl mx-auto space-y-2">
                                 <div className="flex items-center justify-between">
-                                  <div className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                                  <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
                                     Cấu hình Ma Trận chiết khấu / giảm giá
                                   </div>
-                                  <div className="text-[10px] text-zinc-500 font-medium">
+                                  <div className="text-[10px] text-slate-500 font-medium">
                                     Mẹo: Rê chuột vào ô giá trị để Sửa/Xóa. Click ô trống bất kỳ để Thêm nhanh giá vé.
                                   </div>
                                 </div>
 
-                                <div className="overflow-x-auto rounded-lg border border-amber-500/30 shadow-md bg-zinc-900/10">
-                                  <table className="w-full border-collapse text-center table-fixed">
+                                <div className="overflow-x-auto rounded-lg border border-[var(--border-light)] bg-[var(--bg-card)]">
+                                  <table className="minimal-table text-center table-fixed">
                                     <thead>
-                                      <tr className="bg-zinc-950 border-b border-amber-500/30 text-[11px]">
-                                        <th className="py-2 px-3 border-r border-amber-500/30 text-zinc-200 font-extrabold uppercase bg-zinc-950/80 w-36 text-center">
+                                      <tr className="bg-indigo-50/70 dark:bg-indigo-950/20 border-b border-slate-200 dark:border-zinc-800 text-[11px]">
+                                        <th className="py-2 px-3 border-r border-slate-200 dark:border-zinc-800 text-indigo-900 dark:text-indigo-200 font-bold uppercase w-36 text-center bg-indigo-100/50 dark:bg-indigo-950/30">
                                           HẠNG ĐẶT CHỖ
                                         </th>
                                         {(() => {
@@ -1241,7 +1236,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                             const commonIndex = isAllSameIndex ? uniqueIndices[0] : null;
 
                                             return (
-                                              <th key={cIdx} className="py-2 px-3 border-r border-amber-500/30 text-amber-400 font-bold text-[11px] uppercase bg-zinc-950/40 text-center">
+                                              <th key={cIdx} className="py-2 px-3 border-r border-slate-200 dark:border-zinc-800 text-indigo-900 dark:text-indigo-200 font-bold text-[11px] uppercase text-center bg-indigo-50/40 dark:bg-indigo-950/15">
                                                 <div className="flex flex-col items-center justify-center gap-1 select-none">
                                                   <div className="flex items-center justify-center gap-1.5">
                                                     <span>{colTag}</span>
@@ -1252,7 +1247,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                           e.stopPropagation();
                                                           openEditColumnTagsModal(colTag, group.details);
                                                         }}
-                                                        className="p-1 rounded hover:bg-zinc-800 text-amber-500 hover:text-amber-300 transition-colors cursor-pointer"
+                                                        className="p-1 rounded hover:bg-indigo-100/70 dark:hover:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:text-indigo-950 dark:hover:text-indigo-100 transition-colors cursor-pointer"
                                                         title={`Sửa thẻ nhóm cho cột ${colTag}`}
                                                       >
                                                         <Edit2 className="w-3 h-3" />
@@ -1260,7 +1255,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                     )}
                                                   </div>
                                                   {isAllSameIndex && (
-                                                    <span className="text-[9px] text-amber-500/90 font-bold normal-case tracking-normal">
+                                                    <span className="text-[9px] text-indigo-500/80 dark:text-indigo-300/80 font-bold normal-case tracking-normal">
                                                       (Thứ tự: {commonIndex})
                                                     </span>
                                                   )}
@@ -1271,7 +1266,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                         })()}
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-amber-500/20">
+                                    <tbody className="divide-y divide-slate-100">
                                       {(() => {
                                         const columnOrder = [
                                           'Âu, Úc, Mỹ',
@@ -1321,8 +1316,8 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                         }) as string[];
 
                                         return uniqueRows.map((rowKey, rIdx) => (
-                                          <tr key={rIdx} className="hover:bg-zinc-900/20 transition-colors">
-                                            <td className="py-1.5 px-3 border-r border-amber-500/30 bg-zinc-950/60 text-zinc-100 font-extrabold text-xs tracking-wider text-center break-all whitespace-normal leading-relaxed">
+                                          <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                                            <td className="py-1.5 px-3 border-r border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 font-semibold text-xs tracking-wider text-center break-all whitespace-normal leading-relaxed">
                                               {rowKey}
                                             </td>
                                             {cols.map((colTag, cIdx) => {
@@ -1351,42 +1346,42 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                 const showIndexInCell = !isAllSameIndex && detail.index !== null && detail.index !== undefined;
 
                                                 return (
-                                                  <td key={cIdx} className="p-0 border-r border-amber-500/30 relative group/cell">
+                                                  <td key={cIdx} className="p-0 border-r border-slate-200 relative group/cell">
                                                     <div className="py-1.5 px-2 min-h-[44px] flex flex-col items-center justify-center transition-all duration-200 group-hover/cell:opacity-10/70">
                                                       <div className="flex items-center gap-1.5 justify-center">
-                                                        <span className="font-mono font-extrabold text-rose-400 text-xs leading-none">
+                                                        <span className="font-mono font-extrabold text-slate-700 text-xs leading-none">
                                                           {amountStr || pctStr}
                                                         </span>
                                                         {pctStr && (
                                                           <span className={`inline-block px-1 py-[1px] rounded text-xs font-mono font-bold leading-none ${
                                                             detail.discount_base === 'FARE' 
-                                                              ? 'bg-sky-950/30 text-sky-400 border border-sky-900/30' 
-                                                              : 'bg-emerald-950/30 text-emerald-400 border border-emerald-900/30'
+                                                              ? 'bg-sky-50 text-sky-700 border border-sky-200' 
+                                                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                                           }`}>
                                                             {detail.discount_base}
                                                           </span>
                                                         )}
                                                       </div>
                                                       {amountStr && pctStr && (
-                                                        <span className="block text-[9px] text-zinc-500 mt-0.5 font-mono leading-none">
+                                                        <span className="block text-[9px] text-slate-500 mt-0.5 font-mono leading-none">
                                                           ({pctStr})
                                                         </span>
                                                       )}
                                                       {showIndexInCell && (
-                                                        <span className="block text-[9px] text-amber-500 font-bold mt-0.5 leading-none">
+                                                        <span className="block text-[9px] text-slate-450 font-bold mt-0.5 leading-none">
                                                           (Thứ tự: {detail.index})
                                                         </span>
                                                       )}
                                                     </div>
 
-                                                    <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover/cell:opacity-100 transition-all duration-150 bg-zinc-950/90 backdrop-blur-xs">
+                                                    <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover/cell:opacity-100 transition-all duration-150 bg-white/95 backdrop-blur-xs">
                                                       <button
                                                         type="button"
                                                         onClick={(e) => {
                                                           e.stopPropagation();
                                                           openEditModal(detail);
                                                         }}
-                                                        className="p-1 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white transition-all cursor-pointer border border-zinc-700 shadow-sm"
+                                                        className="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-all cursor-pointer border border-slate-200 shadow-xs"
                                                         title="Sửa"
                                                       >
                                                         <Edit2 className="w-3 h-3" />
@@ -1397,7 +1392,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                           e.stopPropagation();
                                                           handleDelete(detail.id);
                                                         }}
-                                                        className="p-1 rounded-md bg-rose-950/30 hover:bg-rose-900/50 text-rose-400 hover:text-rose-200 transition-all cursor-pointer border border-rose-900/40 shadow-sm"
+                                                        className="p-1 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700 transition-all cursor-pointer border border-rose-200 shadow-xs"
                                                         title="Xóa"
                                                       >
                                                         <Trash2 className="w-3 h-3" />
@@ -1407,7 +1402,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                 );
                                               } else {
                                                 return (
-                                                  <td key={cIdx} className="p-0 border-r border-amber-500/30">
+                                                  <td key={cIdx} className="p-0 border-r border-slate-200">
                                                     <div 
                                                       onClick={() => {
                                                         const colDetails = group.details.filter(d => 
@@ -1423,10 +1418,10 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                                           existingColumnTags
                                                         );
                                                       }}
-                                                      className="min-h-[44px] flex items-center justify-center cursor-pointer hover:bg-amber-500/5 transition-colors group/empty"
+                                                      className="min-h-[44px] flex items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors group/empty"
                                                       title={`Thêm mới: ${rowKey} - ${colTag}`}
                                                     >
-                                                      <Plus className="w-3.5 h-3.5 text-zinc-700 group-hover/empty:text-amber-400 group-hover/empty:scale-110 transition-all duration-150 opacity-25 group-hover/empty:opacity-100" />
+                                                      <Plus className="w-3.5 h-3.5 text-slate-400 group-hover/empty:text-slate-600 group-hover/empty:scale-110 transition-all duration-150 opacity-25 group-hover/empty:opacity-100" />
                                                     </div>
                                                   </td>
                                                 );
@@ -1445,57 +1440,55 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                           group.details.map((detail) => {
                             const overallIndex = sortedDetails.indexOf(detail) + 1;
                             return (
-                              <tr key={detail.id} className="hover:bg-zinc-900/10 transition-colors border-b border-zinc-900/50">
-                                <td className="px-1.5 py-0.5 font-mono font-bold text-xs text-zinc-500 text-center">
+                              <tr key={detail.id}>
+                                <td className="font-mono font-bold text-center">
                                   {overallIndex}
                                 </td>
-                                <td className="px-1.5 py-0.5">
+                                <td>
                                   <div className="flex flex-wrap gap-1 max-w-[150px]">
                                     {detail.booking_class && detail.booking_class.length > 0 ? (
                                       detail.booking_class.map((b, bIdx) => (
-                                        <span key={bIdx} className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-indigo-950/40 border border-indigo-900/40 text-indigo-300 rounded-md">
+                                        <span key={bIdx} className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-md">
                                           {b}
                                         </span>
                                       ))
                                     ) : (
-                                      <span className="text-zinc-600 italic text-xs">Tất cả các hạng</span>
+                                      <span className="text-slate-400 italic text-xs">Tất cả các hạng</span>
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-1.5 py-0.5">
+                                <td>
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${
                                     detail.discount_base === 'FARE' 
-                                      ? 'bg-sky-950/30 text-sky-400 border-sky-900/40' 
-                                      : 'bg-emerald-950/30 text-emerald-400 border-emerald-900/40'
+                                      ? 'bg-sky-50 border-sky-200 text-sky-700' 
+                                      : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                                   }`}>
                                     {detail.discount_base || '—'}
                                   </span>
                                 </td>
-                                <td className="px-1.5 py-0.5 font-mono font-semibold text-zinc-100 text-xs">
-                                  <div className="flex items-center gap-0.5">
-                                    {detail.discount_percentage !== undefined && detail.discount_percentage !== 0 ? `${detail.discount_percentage}%` : '—'}
-                                  </div>
+                                <td className="font-mono font-semibold">
+                                  {detail.discount_percentage !== undefined && detail.discount_percentage !== 0 ? `${detail.discount_percentage}%` : '—'}
                                 </td>
-                                <td className="px-1.5 py-0.5 font-mono text-zinc-300 text-xs">
+                                <td className="font-mono">
                                   {detail.amount !== null && detail.amount !== undefined ? detail.amount.toLocaleString() : '—'}
                                 </td>
-                                <td className="px-1.5 py-0.5 font-mono text-zinc-300 text-xs">
+                                <td className="font-mono">
                                   {detail.index !== null && detail.index !== undefined ? detail.index : '—'}
                                 </td>
-                                <td className="px-1.5 py-0.5">
+                                <td>
                                   <div className="flex flex-wrap gap-1 max-w-[150px]">
                                     {detail.groups_tag && detail.groups_tag.length > 0 ? (
                                       detail.groups_tag.map((tag, tagIdx) => (
-                                        <span key={tagIdx} className="inline-block px-1.5 py-0.5 text-[10px] font-mono bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-sm">
+                                        <span key={tagIdx} className="inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-100 border border-slate-200 text-slate-700 rounded-sm">
                                           {tag}
                                         </span>
                                       ))
                                     ) : (
-                                      <span className="text-zinc-600 text-xs">—</span>
+                                      <span className="text-slate-400 text-xs">—</span>
                                     )}
                                   </div>
                                 </td>
-                                <td className="px-1.5 py-0.5">
+                                <td>
                                   <div className="flex items-center justify-center gap-1.5">
                                     <button
                                       onClick={() => openEditModal(detail)}
@@ -1506,7 +1499,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                     </button>
                                     <button
                                       onClick={() => handleDelete(detail.id)}
-                                      className="p-1 rounded border border-red-200 bg-red-50/50 text-red-600 hover:bg-red-100/80 transition-all cursor-pointer"
+                                      className="p-1 rounded border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition-all cursor-pointer"
                                       title="Xóa"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -1530,7 +1523,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       {/* Add/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
-          <div className={`bg-zinc-900 rounded-2xl w-full ${modalInputMode === 'matrix' ? 'max-w-4xl' : 'max-w-lg'} shadow-2xl border border-zinc-800 overflow-visible my-8 animate-in fade-in duration-200`}>
+          <div className={`bg-zinc-900 rounded-2xl w-full ${modalInputMode === 'matrix' ? 'max-w-4xl' : 'max-w-lg'} border border-zinc-800/80 overflow-visible my-8 animate-in fade-in duration-200`}>
 
 
             {/* Modal Body */}
@@ -1785,7 +1778,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                     {/* Floating Modal for Group Tag Config */}
                     {activeHeaderEditCol !== null && (
                       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl w-full max-w-sm overflow-visible p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 text-left">
+                        <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl w-full max-w-sm overflow-visible p-4 space-y-3 animate-in fade-in zoom-in-95 duration-150 text-left">
                           <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                             <h4 className="text-sm font-bold text-zinc-100 uppercase tracking-wider">
                               Cấu hình Group Tag {activeHeaderEditCol}
@@ -2114,7 +2107,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                     showToast(`Đã thêm: ${newTag}`, 'success');
                                   }
                                 }}
-                                className="flex-1 py-1 px-2 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 transition-colors cursor-pointer"
+                                className="flex-1 py-1 px-2 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded border border-zinc-800 transition-colors cursor-pointer"
                             >
                               Thêm 1 chiều {"(->)"}
                             </button>
@@ -2130,7 +2123,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                   showToast(`Đã thêm: ${newTag}`, 'success');
                                 }
                               }}
-                              className="flex-1 py-1 px-2 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 transition-colors cursor-pointer"
+                              className="flex-1 py-1 px-2 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded border border-zinc-800 transition-colors cursor-pointer"
                               >
                                 Thêm 2 chiều {"(<->)"}
                               </button>
@@ -2145,37 +2138,37 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
               {/* Modal Footer */}
               <div className="mt-4 pt-3 border-t border-zinc-850 flex flex-wrap items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
+                </CustomButton>
                 {modalInputMode === 'standard' && !isEditMode && (
-                  <button
+                  <CustomButton
                     type="button"
                     onClick={handleCreateAndKeepTags}
-                    className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                    variant="secondary"
                   >
                     Tạo mới giữ nguyên tag
-                  </button>
+                  </CustomButton>
                 )}
                 {isEditMode && (
-                  <button
+                  <CustomButton
                     type="button"
                     onClick={(e) => handleSubmit(e, true)}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                    variant="secondary"
                   >
                     Lưu nhân bản
-                  </button>
+                  </CustomButton>
                 )}
-                <button
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   {isEditMode ? 'Lưu thay đổi' : 'Tạo mới'}
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>
@@ -2185,7 +2178,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       {/* Edit Column Tags Modal */}
       {isColModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-zinc-900 rounded-2xl w-full max-w-lg shadow-2xl border border-zinc-800 overflow-visible my-8 animate-in fade-in duration-200">
+          <div className="bg-zinc-900 rounded-2xl w-full max-w-lg border border-zinc-800/80 overflow-visible my-8 animate-in fade-in duration-200">
 
 
             {/* Modal Body */}
@@ -2280,7 +2273,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                 showToast(`Đã thêm: ${newTag}`, 'success');
                               }
                             }}
-                            className="flex-1 py-1 px-2 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 transition-colors cursor-pointer"
+                            className="flex-1 py-1 px-2 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded border border-zinc-800 transition-colors cursor-pointer"
                           >
                             Thêm 1 chiều {"(->)"}
                           </button>
@@ -2296,7 +2289,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                 showToast(`Đã thêm: ${newTag}`, 'success');
                               }
                             }}
-                            className="flex-1 py-1 px-2 text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded border border-emerald-200 transition-colors cursor-pointer"
+                            className="flex-1 py-1 px-2 text-[10px] font-bold bg-zinc-900 hover:bg-zinc-850 text-zinc-300 rounded border border-zinc-800 transition-colors cursor-pointer"
                           >
                             Thêm 2 chiều {"(<->)"}
                           </button>
@@ -2309,19 +2302,19 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
               {/* Modal Footer */}
               <div className="mt-4 pt-3 border-t border-zinc-850 flex items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsColModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   Lưu thay đổi
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>

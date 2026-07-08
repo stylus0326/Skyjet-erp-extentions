@@ -168,9 +168,9 @@ export function CustomDatePicker({
         onClick={() => handleDaySelect(d)}
         className={`h-7 w-7 text-[11px] rounded-full flex items-center justify-center transition-all cursor-pointer ${
           isSelected 
-            ? 'bg-emerald-500 text-zinc-950 font-bold shadow shadow-emerald-500/30' 
+            ? 'bg-[#4727B5] text-white font-bold shadow shadow-[#4727B5]/30' 
             : isToday()
-              ? 'border border-emerald-500 text-emerald-400 font-semibold'
+              ? 'border border-[#4727B5] text-[#8b6ff7] font-semibold'
               : 'text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100'
         }`}
       >
@@ -223,7 +223,7 @@ export function CustomDatePicker({
                   key={`q-${q}`}
                   type="button"
                   onClick={() => handleSelectQuarter(q as any)}
-                  className="py-1 text-[10px] font-bold rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-emerald-400 hover:border-emerald-500/30 hover:bg-zinc-800 transition-all cursor-pointer text-center"
+                  className="py-1 text-[10px] font-bold rounded bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-[#8b6ff7] hover:border-[#4727B5]/30 hover:bg-zinc-800 transition-all cursor-pointer text-center"
                 >
                   Q{q}
                 </button>
@@ -308,7 +308,7 @@ export function CustomDatePicker({
                 onChange(`${yyyy}-${mm}-${dd}`);
                 setIsOpen(false);
               }}
-              className="text-emerald-400 hover:text-emerald-300 font-semibold cursor-pointer transition-colors"
+              className="text-[#8b6ff7] hover:text-[#a085fa] font-semibold cursor-pointer transition-colors"
             >
               Hôm nay
             </button>

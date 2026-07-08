@@ -70,11 +70,11 @@ export function CustomSelect({
                   setIsOpen(false);
                 }}
                 className={`flex items-center justify-between w-full px-3 py-2 text-xs text-left rounded hover:bg-zinc-900 transition-colors cursor-pointer ${
-                  isSelected ? 'text-emerald-400 bg-zinc-900/50 font-semibold' : 'text-zinc-300'
+                  isSelected ? 'text-[#8b6ff7] bg-zinc-900/50 font-semibold' : 'text-zinc-300'
                 }`}
               >
                 <span>{opt.label}</span>
-                {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                {isSelected && <Check className="w-3 h-3 text-[#8b6ff7]" />}
               </button>
             );
           })}

@@ -67,7 +67,7 @@ export function TagDropdown({
               }}
               className={`flex-1 py-1 text-center text-[10px] font-bold uppercase rounded transition-all cursor-pointer ${
                 activeTab === 'iata'
-                  ? 'bg-zinc-800 text-emerald-400 border border-zinc-700/50 shadow'
+                  ? 'bg-zinc-800 text-[#8b6ff7] border border-zinc-700/50 shadow'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -81,7 +81,7 @@ export function TagDropdown({
               }}
               className={`flex-1 py-1 text-center text-[10px] font-bold uppercase rounded transition-all cursor-pointer ${
                 activeTab === 'tag'
-                  ? 'bg-zinc-800 text-emerald-400 border border-zinc-700/50 shadow'
+                  ? 'bg-zinc-800 text-[#8b6ff7] border border-zinc-700/50 shadow'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -118,11 +118,11 @@ export function TagDropdown({
                       setIsOpen(false);
                     }}
                     className={`flex items-center justify-between w-full px-2 py-1.5 text-xs font-mono text-left rounded hover:bg-zinc-900 transition-colors cursor-pointer ${
-                      isSelected ? 'text-emerald-400 bg-zinc-900/50 font-bold' : 'text-zinc-300'
+                      isSelected ? 'text-[#8b6ff7] bg-zinc-900/50 font-bold' : 'text-zinc-300'
                     }`}
                   >
                     <span>{item}</span>
-                    {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                    {isSelected && <Check className="w-3.5 h-3.5 text-[#8b6ff7] shrink-0 ml-2" />}
                   </button>
                 );
               })

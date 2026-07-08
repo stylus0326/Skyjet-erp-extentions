@@ -1,6 +1,7 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { designTokens } from '../designTokens';
+import { CustomButton } from './CustomButton';
 
 interface ConfirmDeleteDialogProps {
   isOpen: boolean;
@@ -31,20 +32,20 @@ export function ConfirmDeleteDialog({
             <p className="text-xs text-slate-500 leading-relaxed">{message}</p>
           </div>
           <div className="flex gap-2.5 justify-center pt-1">
-            <button
+            <CustomButton
               onClick={onCancel}
-              type="button"
-              className={`${designTokens.buttonSecondary} flex-1`}
+              variant="secondary"
+              className="flex-1"
             >
               Hủy
-            </button>
-            <button
+            </CustomButton>
+            <CustomButton
               onClick={onConfirm}
-              type="button"
-              className={`${designTokens.buttonDanger} flex-1`}
+              variant="danger"
+              className="flex-1"
             >
               Xóa
-            </button>
+            </CustomButton>
           </div>
         </div>
       </div>

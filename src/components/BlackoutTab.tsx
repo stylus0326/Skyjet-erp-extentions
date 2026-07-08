@@ -7,7 +7,8 @@ import {
   X, Check, ArrowUpDown, RefreshCw, Layers
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
-import { CustomDatePicker } from './CustomDatePicker';
+import { CustomDateRangePicker } from './CustomDateRangePicker';
+import { CustomButton } from './CustomButton';
 
 export function BlackoutTab() {
   const [periods, setPeriods] = useState<CampaignBlackoutPeriod[]>([]);
@@ -43,7 +44,17 @@ export function BlackoutTab() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
+    if (!force) {
+      const cachedPeriods = localStorage.getItem('skyjet_cache_blackout_periods');
+      const cachedCampaignsMap = localStorage.getItem('skyjet_cache_blackout_campaigns_map');
+      if (cachedPeriods && cachedCampaignsMap) {
+        setPeriods(JSON.parse(cachedPeriods));
+        setCampaignsMap(JSON.parse(cachedCampaignsMap));
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -67,9 +78,12 @@ export function BlackoutTab() {
           cMap[c.id] = c;
         });
         setCampaignsMap(cMap);
+        localStorage.setItem('skyjet_cache_blackout_campaigns_map', JSON.stringify(cMap));
       }
 
-      setPeriods((pData as CampaignBlackoutPeriod[]) || []);
+      const pList = (pData as CampaignBlackoutPeriod[]) || [];
+      setPeriods(pList);
+      localStorage.setItem('skyjet_cache_blackout_periods', JSON.stringify(pList));
     } catch (err: any) {
       console.error('Error fetching blackout periods:', err);
       setError(err?.message || 'Failed to fetch blackout periods.');
@@ -79,7 +93,30 @@ export function BlackoutTab() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
+  }, []);
+
+  useEffect(() => {
+    const handleSearch = (e: Event) => {
+      const query = (e as CustomEvent).detail;
+      setSearchQuery(query);
+    };
+    const handleRefresh = () => {
+      fetchData(true);
+    };
+    const handleAdd = () => {
+      openAddModal();
+    };
+
+    window.addEventListener('skyjet-search', handleSearch);
+    window.addEventListener('skyjet-refresh', handleRefresh);
+    window.addEventListener('skyjet-add', handleAdd);
+
+    return () => {
+      window.removeEventListener('skyjet-search', handleSearch);
+      window.removeEventListener('skyjet-refresh', handleRefresh);
+      window.removeEventListener('skyjet-add', handleAdd);
+    };
   }, []);
 
   const handleSort = (field: keyof CampaignBlackoutPeriod) => {
@@ -128,8 +165,8 @@ export function BlackoutTab() {
 
       if (err) throw err;
 
-      showToast(`Đã xóa giai đoạn tạm dừng #${deleteId} thành công.`);
-      fetchData();
+      showToast(`Đã xóa khoảng tạm ngưng #${deleteId} thành công.`);
+      fetchData(true);
     } catch (err: any) {
       console.error('Error deleting blackout period:', err);
       showToast(err?.message || 'Không thể xóa giai đoạn tạm dừng.', 'error');
@@ -190,7 +227,7 @@ export function BlackoutTab() {
         showToast('Blackout period created successfully');
       }
       setIsModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error saving blackout period:', err);
       showToast(err?.message || 'Error occurred while saving.', 'error');
@@ -246,39 +283,6 @@ export function BlackoutTab() {
         </div>
       )}
 
-      {/* Control Panel */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between bg-zinc-900/10 p-2 rounded-md border border-zinc-900/50 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-            <Search className="h-3.5 w-3.5 text-zinc-500" />
-          </span>
-          <input
-            type="text"
-            placeholder="Tìm tên chiến dịch, phân loại, ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-8 pr-2.5 py-1 border border-zinc-800 rounded bg-zinc-900/30 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 text-xs transition-all text-zinc-100"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <button
-            onClick={fetchData}
-            className="p-1.5 border border-zinc-850 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors bg-zinc-900/50 flex items-center justify-center cursor-pointer"
-            title="Tải lại"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          
-          <button
-            onClick={openAddModal}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded text-xs font-bold transition-all shadow active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Thêm Thời gian dừng
-          </button>
-        </div>
-      </div>
 
       {/* Error Message */}
       {error && (
@@ -288,7 +292,7 @@ export function BlackoutTab() {
             <h4 className="font-semibold text-sm">Lỗi truy cập cơ sở dữ liệu</h4>
             <p className="text-xs text-rose-300 mt-1">{error}</p>
             <button 
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               className="mt-2 text-xs font-semibold text-rose-400 hover:text-rose-200 flex items-center gap-1 underline cursor-pointer"
             >
               Thử lại
@@ -298,7 +302,7 @@ export function BlackoutTab() {
       )}
 
       {/* Table Area */}
-      <div className="bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-zinc-400 animate-spin mx-auto" />
@@ -313,97 +317,90 @@ export function BlackoutTab() {
             <p className="text-xs text-zinc-500 leading-relaxed">
               {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo giai đoạn tạm dừng chiến dịch đầu tiên của bạn!"}
             </p>
-            {!searchQuery && (
-              <button 
-                onClick={openAddModal}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-100 hover:bg-zinc-800 bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-800 cursor-pointer"
-              >
-                Thêm Thời gian dừng
-              </button>
-            )}
+
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="minimal-table">
               <thead>
-                <tr className="bg-zinc-900/40 border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                  <th onClick={() => handleSort('id')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                <tr>
+                  <th onClick={() => handleSort('id')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       ID
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('campaign_id')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('campaign_id')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       ID Chiến dịch
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th className="px-1.5 py-1 text-zinc-400 font-semibold">Chi tiết Chiến dịch</th>
-                  <th onClick={() => handleSort('start_date')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th>Chi tiết Chiến dịch</th>
+                  <th onClick={() => handleSort('start_date')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Ngày Bắt đầu
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('end_date')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('end_date')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Ngày Kết thúc
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th onClick={() => handleSort('type')} className="px-1.5 py-1 cursor-pointer hover:bg-zinc-900 select-none">
+                  <th onClick={() => handleSort('type')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Phân loại (Type)
-                      <ArrowUpDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th className="px-1.5 py-1 text-center text-zinc-400 font-semibold">Hành động</th>
+                  <th className="text-center">Hành động</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-900 text-[11px] text-zinc-300">
+              <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700">
                 {sortedPeriods.map((period) => {
                   const linkedCampaign = campaignsMap[period.campaign_id];
                   return (
-                    <tr key={period.id} className="hover:bg-zinc-900/30 transition-colors border-b border-zinc-900/50">
-                      <td className="px-1.5 py-0.5 font-mono font-bold text-xs text-zinc-500">
+                    <tr key={period.id}>
+                      <td className="font-mono font-bold text-xs text-slate-400">
                         #{period.id}
                       </td>
-                      <td className="px-1.5 py-0.5 font-mono text-xs text-zinc-400">
+                      <td className="font-mono text-xs text-slate-400">
                         #{period.campaign_id}
                       </td>
-                      <td className="px-1.5 py-0.5">
+                      <td>
                         {linkedCampaign ? (
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-zinc-100">{linkedCampaign.name}</span>
+                            <span className="font-semibold text-slate-800">{linkedCampaign.name}</span>
                             {linkedCampaign.carrier && (
-                              <span className="text-xs text-zinc-500">Hãng bay: {linkedCampaign.carrier}</span>
+                              <span className="text-xs text-slate-500">Hãng bay: {linkedCampaign.carrier}</span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-zinc-600 italic text-xs">Unknown / Deleted Campaign</span>
+                          <span className="text-slate-400 italic text-xs">Unknown / Deleted Campaign</span>
                         )}
                       </td>
-                      <td className="px-1.5 py-0.5 font-mono text-zinc-300 text-xs">
+                      <td className="font-mono text-slate-700 text-xs">
                         {period.start_date || '—'}
                       </td>
-                      <td className="px-1.5 py-0.5 font-mono text-zinc-300 text-xs">
+                      <td className="font-mono text-slate-700 text-xs">
                         {period.end_date || '—'}
                       </td>
-                      <td className="px-1.5 py-0.5">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                      <td>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${
                           period.type === 'BOOKING' 
-                            ? 'bg-purple-950/30 text-purple-400 border-purple-900/40' 
-                            : 'bg-amber-950/30 text-amber-400 border-amber-900/40'
+                            ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
                         }`}>
                           {period.type === 'BOOKING' ? 'Ngày đặt vé' : period.type === 'FLY' ? 'Ngày bay' : (period.type || '—')}
                         </span>
                       </td>
-                      <td className="px-1.5 py-0.5">
+                      <td>
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => openEditModal(period)}
-                            className="p-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer"
+                            className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
                             title="Sửa"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -445,23 +442,16 @@ export function BlackoutTab() {
                 />
               </div>
 
-              {/* Start Date */}
+              {/* Giai đoạn tạm dừng */}
               <div>
-                <label className="block text-xs font-bold text-zinc-400 mb-1">Ngày Bắt đầu *</label>
-                <CustomDatePicker
-                  value={formStartDate}
-                  onChange={setFormStartDate}
-                  quarterType="start"
-                />
-              </div>
-
-              {/* End Date */}
-              <div>
-                <label className="block text-xs font-bold text-zinc-400 mb-1">Ngày Kết thúc *</label>
-                <CustomDatePicker
-                  value={formEndDate}
-                  onChange={setFormEndDate}
-                  quarterType="end"
+                <label className="block text-xs font-bold text-zinc-400 mb-1">Giai đoạn tạm dừng (Ngày Bắt đầu – Ngày Kết thúc) *</label>
+                <CustomDateRangePicker
+                  startDate={formStartDate}
+                  endDate={formEndDate}
+                  onRangeChange={(start, end) => {
+                    setFormStartDate(start);
+                    setFormEndDate(end);
+                  }}
                 />
               </div>
 
@@ -496,19 +486,19 @@ export function BlackoutTab() {
 
               {/* Modal Footer */}
               <div className="mt-4 pt-3 border-t border-zinc-850 flex items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   {isEditMode ? 'Lưu thay đổi' : 'Tạo mới'}
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>

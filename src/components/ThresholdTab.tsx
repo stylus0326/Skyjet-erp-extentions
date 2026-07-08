@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { TagInput } from './TagInput';
+import { CustomButton } from './CustomButton';
 
 export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies' | 'thresholds'; hideExpired?: boolean }) {
   const [internalSubTab, setInternalSubTab] = useState<'policies' | 'thresholds'>('policies');
@@ -92,7 +93,19 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
+    if (!force) {
+      const cachedPolicies = localStorage.getItem('skyjet_cache_threshold_policies');
+      const cachedThresholds = localStorage.getItem('skyjet_cache_thresholds');
+      const cachedCampaigns = localStorage.getItem('skyjet_cache_threshold_campaigns');
+      if (cachedPolicies && cachedThresholds && cachedCampaigns) {
+        setPolicies(JSON.parse(cachedPolicies));
+        setThresholds(JSON.parse(cachedThresholds));
+        setCampaigns(JSON.parse(cachedCampaigns));
+        setLoading(false);
+        return;
+      }
+    }
     setLoading(true);
     setError(null);
     try {
@@ -110,9 +123,17 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
       if (thErr) throw thErr;
       if (campErr) throw campErr;
 
-      setPolicies(polData || []);
-      setThresholds(thData || []);
-      setCampaigns(campData || []);
+      const pList = polData || [];
+      const tList = thData || [];
+      const cList = campData || [];
+
+      setPolicies(pList);
+      setThresholds(tList);
+      setCampaigns(cList);
+
+      localStorage.setItem('skyjet_cache_threshold_policies', JSON.stringify(pList));
+      localStorage.setItem('skyjet_cache_thresholds', JSON.stringify(tList));
+      localStorage.setItem('skyjet_cache_threshold_campaigns', JSON.stringify(cList));
     } catch (err: any) {
       console.error('Error fetching configuration:', err);
       setError(err?.message || 'Failed to fetch policy configuration tables.');
@@ -122,8 +143,36 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
   };
 
   useEffect(() => {
-    fetchData();
+    fetchData(false);
   }, []);
+
+  useEffect(() => {
+    const handleSearch = (e: Event) => {
+      const query = (e as CustomEvent).detail;
+      setSearchQuery(query);
+    };
+    const handleRefresh = () => {
+      fetchData(true);
+    };
+    const handleAdd = (e: Event) => {
+      const subtab = (e as CustomEvent).detail;
+      if (subtab === 'policies') {
+        openAddPolModal();
+      } else {
+        openAddThModal();
+      }
+    };
+
+    window.addEventListener('skyjet-search', handleSearch);
+    window.addEventListener('skyjet-refresh', handleRefresh);
+    window.addEventListener('skyjet-add', handleAdd);
+
+    return () => {
+      window.removeEventListener('skyjet-search', handleSearch);
+      window.removeEventListener('skyjet-refresh', handleRefresh);
+      window.removeEventListener('skyjet-add', handleAdd);
+    };
+  }, [activeSubTab]);
 
   const handlePolSort = (field: keyof Policy) => {
     if (polSortField === field) {
@@ -212,7 +261,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
       if (err) throw err;
 
       showToast(`Đã xóa ${deleteType === 'policy' ? 'chính sách' : 'ngưỡng'} #${deleteId} thành công.`);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error deleting:', err);
       showToast(err?.message || 'Không thể xóa dữ liệu.', 'error');
@@ -255,7 +304,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
         showToast('Tạo chính sách thành công');
       }
       setIsPolModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error saving policy:', err);
       showToast(err?.message || 'Lỗi khi lưu chính sách.', 'error');
@@ -298,7 +347,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
         showToast('Tạo ngưỡng thành công');
       }
       setIsThModalOpen(false);
-      fetchData();
+      fetchData(true);
     } catch (err: any) {
       console.error('Error saving threshold:', err);
       showToast(err?.message || 'Lỗi khi lưu ngưỡng.', 'error');
@@ -359,7 +408,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
     if (aVal === null || aVal === undefined) return thSortDirection === 'asc' ? 1 : -1;
     if (bVal === null || bVal === undefined) return thSortDirection === 'asc' ? -1 : 1;
     if (typeof aVal === 'string' && typeof bVal === 'string') {
-      return thSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      return thSortDirection === 'asc' ? aVal.localeCompare(bVal) : thSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     }
     return thSortDirection === 'asc' 
       ? (aVal as number) - (bVal as number) 
@@ -417,39 +466,6 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
         </div>
       )}
 
-      {/* Control Panel */}
-      <div className="flex flex-col sm:flex-row gap-2.5 items-center justify-between bg-zinc-900/10 p-2 rounded-md border border-zinc-900/50 shadow-sm">
-        <div className="relative w-full sm:max-w-xs">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-            <Search className="h-3.5 w-3.5 text-zinc-500" />
-          </span>
-          <input
-            type="text"
-            placeholder={activeSubTab === 'policies' ? "Tìm chính sách..." : "Tìm ngưỡng, chiến dịch..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-8 pr-2.5 py-1 border border-zinc-800 rounded bg-zinc-900/30 placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-700 text-xs transition-all text-zinc-100"
-          />
-        </div>
-
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <button
-            onClick={fetchData}
-            className="p-1.5 border border-zinc-850 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors bg-zinc-900/50 flex items-center justify-center cursor-pointer"
-            title="Tải lại"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          
-          <button
-            onClick={activeSubTab === 'policies' ? openAddPolModal : openAddThModal}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded text-xs font-bold transition-all shadow active:scale-95 cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            {activeSubTab === 'policies' ? 'Thêm Chính Sách' : 'Thêm Ngưỡng'}
-          </button>
-        </div>
-      </div>
 
       {/* Error Message */}
       {error && (
@@ -459,7 +475,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
             <h4 className="font-semibold text-sm">Lỗi truy cập cơ sở dữ liệu</h4>
             <p className="text-xs text-rose-300 mt-1">{error}</p>
             <button 
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               className="mt-2 text-xs font-semibold text-rose-400 hover:text-rose-200 flex items-center gap-1 underline cursor-pointer"
             >
               Thử lại
@@ -469,7 +485,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
       )}
 
       {/* Table Area */}
-      <div className="bg-zinc-900/20 border border-zinc-900 rounded-xl overflow-hidden shadow-2xl">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-zinc-400 animate-spin mx-auto" />
@@ -489,61 +505,61 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table-auto w-full text-left border-collapse">
+              <table className="minimal-table">
                 <thead>
-                  <tr className="bg-zinc-900/40 border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                    <th onClick={() => handlePolSort('id')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                  <tr>
+                    <th onClick={() => handlePolSort('id')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         ID
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handlePolSort('name')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handlePolSort('name')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Tên Chính Sách
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-zinc-400 font-semibold">Đại lý</th>
-                    <th onClick={() => handlePolSort('index')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th>Đại lý</th>
+                    <th onClick={() => handlePolSort('index')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Chỉ mục
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-zinc-400 font-semibold w-full">Các ngưỡng liên kết</th>
-                    <th className="px-3 py-2 text-center text-zinc-400 font-semibold whitespace-nowrap">Hành động</th>
+                    <th className="w-full">Các ngưỡng liên kết</th>
+                    <th className="text-center">Hành động</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900 text-[11px] text-zinc-300">
+                <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700">
                   {sortedPolicies.map((pol) => (
-                    <tr key={pol.id} className="hover:bg-zinc-900/30 transition-colors border-b border-zinc-900/50">
-                      <td className="px-3 py-1 font-mono font-bold text-xs text-zinc-500 whitespace-nowrap">
+                    <tr key={pol.id}>
+                      <td className="font-mono font-bold text-xs text-slate-400">
                         #{pol.id}
                       </td>
-                      <td className="px-3 py-1 font-semibold text-zinc-100 whitespace-nowrap">
+                      <td className="font-semibold text-slate-800">
                         {pol.name || '—'}
                       </td>
-                      <td className="px-3 py-1 whitespace-nowrap">
+                      <td>
                         <div className="flex flex-wrap gap-1 max-w-[220px]">
                           {pol.agents && pol.agents.length > 0 ? (
                             pol.agents.map((ag, idx) => (
-                              <span key={idx} className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded-md">
+                              <span key={idx} className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200 rounded">
                                 {ag}
                               </span>
                             ))
                           ) : (
-                            <span className="text-[10px] text-zinc-500 italic">Tất cả</span>
+                            <span className="text-[10px] text-slate-400 italic">Tất cả</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-1 font-mono text-zinc-100 text-center whitespace-nowrap">
+                      <td className="font-mono text-slate-700 text-center">
                         {pol.index !== null && pol.index !== undefined ? pol.index : '—'}
                       </td>
-                      <td className="px-3 py-1 text-zinc-300">
+                      <td className="text-slate-650">
                         <div className="flex flex-wrap gap-x-4 gap-y-1.5 my-1">
                           {!pol.thresholds || pol.thresholds.length === 0 ? (
-                            <span className="text-[10px] text-zinc-500 italic col-span-2">Chưa có ngưỡng nào được gán</span>
+                            <span className="text-[10px] text-slate-400 italic col-span-2">Chưa có ngưỡng nào được gán</span>
                           ) : (
                             pol.thresholds.map(tid => {
                               const th = thresholds.find(t => t.id.toString() === tid.toString());
@@ -555,22 +571,22 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                               
                               const campName = camp ? camp.name : 'Áp dụng chung';
                               return (
-                                <div key={tid} className="flex items-center gap-1.5 text-[10px] text-zinc-400 whitespace-nowrap">
-                                  <span className="w-3.5 h-3.5 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center font-bold text-[8px] shrink-0">
+                                <div key={tid} className="flex items-center gap-1.5 text-[10px] text-slate-500 whitespace-nowrap">
+                                  <span className="w-3.5 h-3.5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-[8px] shrink-0">
                                     ✓
                                   </span>
                                   {th.tag && (
                                     <span className={`px-1 py-0.2 rounded text-[8px] font-bold shrink-0 ${
                                       isExpired 
-                                        ? 'bg-zinc-900 text-zinc-650 border border-zinc-850 line-through' 
-                                        : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                        ? 'bg-slate-150 text-slate-400 border border-slate-200 line-through' 
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                                     }`}>
                                       {th.tag}
                                     </span>
                                   )}
-                                  <span className={`font-semibold ${isExpired ? 'line-through text-zinc-500' : 'text-zinc-300'}`}>{campName}</span>
+                                  <span className={`font-semibold ${isExpired ? 'line-through text-slate-400' : 'text-slate-700'}`}>{campName}</span>
                                   {isExpired && (
-                                    <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-zinc-900 text-zinc-550 border border-zinc-850 shrink-0">
+                                    <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-slate-100 text-slate-400 border border-slate-200 shrink-0">
                                       HẾT HẠN
                                     </span>
                                   )}
@@ -580,11 +596,11 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-1 whitespace-nowrap">
+                      <td>
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => openEditPolModal(pol)}
-                            className="p-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer"
+                            className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
                             title="Sửa"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -612,110 +628,110 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                 <Sliders className="w-6 h-6" />
               </div>
               <h3 className="text-zinc-200 font-semibold text-base">Không tìm thấy ngưỡng nào</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">
-                {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Hãy khởi tạo ngưỡng chi tiết đầu tiên!"}
+              <p className="text-xs text-zinc-550 leading-relaxed">
+                {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo ngưỡng phạt doanh thu đầu tiên của bạn!"}
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="table-auto w-full text-left border-collapse">
+              <table className="minimal-table">
                 <thead>
-                  <tr className="bg-zinc-900/40 border-b border-zinc-900 text-[10px] font-bold text-zinc-500 uppercase tracking-wider whitespace-nowrap">
-                    <th onClick={() => handleThSort('id')} className="px-3 py-2 w-20 cursor-pointer hover:bg-zinc-900 select-none">
+                  <tr>
+                    <th onClick={() => handleThSort('id')} className="w-20 cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         ID
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-zinc-400 font-semibold w-full">Chiến dịch</th>
-                    <th onClick={() => handleThSort('tag')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th className="w-full">Chiến dịch</th>
+                    <th onClick={() => handleThSort('tag')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Tag
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleThSort('threshold_value')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleThSort('threshold_value')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
-                        Giá trị Ngưỡng
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        Ngưỡng
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleThSort('if_greater_value')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleThSort('if_greater_value')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
-                        Nếu vượt ngưỡng (&gt;=)
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        Vượt
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th onClick={() => handleThSort('if_less_value')} className="px-3 py-2 cursor-pointer hover:bg-zinc-900 select-none">
+                    <th onClick={() => handleThSort('if_less_value')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
-                        Nếu dưới ngưỡng (&lt;)
-                        <ArrowUpDown className="w-3 h-3 text-zinc-500" />
+                        Dưới
+                        <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="px-3 py-2 text-center text-zinc-400 font-semibold">Hành động</th>
+                    <th className="text-center">Hành động</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900 text-[11px] text-zinc-300">
+                <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700">
                   {sortedThresholds.map((th) => {
                     const camp = th.campaign_id ? campaigns.find(c => c.id === th.campaign_id) : null;
                     const isExpired = camp ? isCampaignExpired(camp.valid_to) : false;
                     return (
-                      <tr key={th.id} className={`hover:bg-zinc-900/30 transition-colors border-b border-zinc-900/50 whitespace-nowrap ${isExpired ? 'opacity-50 bg-zinc-900/10' : ''}`}>
-                        <td className={`px-3 py-1 font-mono font-bold text-xs text-zinc-500 ${isExpired ? 'line-through' : ''}`}>
+                      <tr key={th.id} className={isExpired ? 'opacity-50' : ''}>
+                        <td className={`font-mono font-bold text-xs text-slate-400 ${isExpired ? 'line-through' : ''}`}>
                           #{th.id}
                         </td>
-                        <td className="px-3 py-1">
+                        <td>
                           {camp ? (
                             <div className="flex items-center gap-1.5">
                               {isExpired && (
-                                <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-zinc-900 text-zinc-550 border border-zinc-850 shrink-0">
+                                <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-slate-100 text-slate-400 border border-slate-200 shrink-0">
                                   HẾT HẠN
                                 </span>
                               )}
-                              <span className={`font-semibold ${isExpired ? 'line-through text-zinc-500' : 'text-zinc-200'}`}>{camp.name}</span>
+                              <span className={`font-semibold ${isExpired ? 'line-through text-slate-400' : 'text-slate-800'}`}>{camp.name}</span>
                               {camp.carrier && (
                                 <span className={`px-1 py-[1px] rounded text-[9px] font-mono border ${
                                   isExpired 
-                                    ? 'bg-zinc-950 text-zinc-650 border-zinc-900 line-through' 
-                                    : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+                                    ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' 
+                                    : 'bg-slate-50 text-slate-700 border-slate-200'
                                 }`}>
                                   {camp.carrier}
                                 </span>
                               )}
                             </div>
                           ) : (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-900 text-zinc-500 border border-zinc-800">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-50 text-slate-400 border border-slate-200">
                               Áp dụng chung
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-1">
+                        <td>
                           {th.tag ? (
                             <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold border ${
                               isExpired 
-                                ? 'bg-zinc-950 text-zinc-600 border-zinc-900 line-through' 
-                                : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                ? 'bg-slate-150 text-slate-400 border border-slate-200 line-through' 
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
                             }`}>
                               {th.tag}
                             </span>
                           ) : (
-                            <span className="text-zinc-600">—</span>
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className={`px-3 py-1 font-mono font-semibold ${isExpired ? 'line-through text-zinc-550' : 'text-zinc-300'}`}>
+                        <td className={`font-mono font-semibold ${isExpired ? 'line-through text-slate-400' : 'text-slate-750'}`}>
                           {th.threshold_value.toLocaleString()}
                         </td>
-                        <td className={`px-3 py-1 font-mono ${isExpired ? 'line-through text-zinc-600' : 'text-emerald-400'}`}>
+                        <td className={`font-mono ${isExpired ? 'line-through text-slate-400' : 'text-emerald-600 font-semibold'}`}>
                           {th.if_greater_value}%
                         </td>
-                        <td className={`px-3 py-1 font-mono ${isExpired ? 'line-through text-zinc-600' : 'text-rose-400'}`}>
+                        <td className={`font-mono ${isExpired ? 'line-through text-slate-400' : 'text-rose-600 font-semibold'}`}>
                           {th.if_less_value}%
                         </td>
-                        <td className="px-3 py-1">
+                        <td>
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => openEditThModal(th)}
-                              className="p-1 rounded border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-all cursor-pointer"
+                              className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
                               title="Sửa"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -861,19 +877,19 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
               </div>
 
               <div className="mt-4 pt-3 border-t border-zinc-850 flex items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsPolModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   {isEditMode ? 'Lưu thay đổi' : 'Tạo mới'}
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>
@@ -1040,19 +1056,19 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
               </div>
 
               <div className="mt-4 pt-3 border-t border-zinc-850 flex items-center justify-end gap-2">
-                <button
+                <CustomButton
                   type="button"
                   onClick={() => setIsThModalOpen(false)}
-                  className="px-4 py-2 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
+                  variant="secondary"
                 >
                   Hủy bỏ
-                </button>
-                <button
+                </CustomButton>
+                <CustomButton
                   type="submit"
-                  className="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-lg text-sm font-bold transition-all shadow-md cursor-pointer"
+                  variant="primary"
                 >
                   {isEditMode ? 'Lưu thay đổi' : 'Tạo mới'}
-                </button>
+                </CustomButton>
               </div>
             </form>
           </div>
