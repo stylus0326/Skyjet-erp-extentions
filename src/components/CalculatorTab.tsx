@@ -1803,13 +1803,13 @@ export function CalculatorTab() {
       return { discount: 0, logs, cumulativeDiscount: 0, activeThreshold: null, multiplier: 1, appliedCampaigns: [] };
     }
 
-    // Nếu hãng không có trong bất kỳ cấu hình chiến dịch nào thì bỏ qua tự tính, giữ nguyên chiết khấu gốc
+    // Nếu hãng không có trong bất kỳ cấu hình chương trình nào thì bỏ qua tự tính, giữ nguyên chiết khấu gốc
     const carrierHasNoCampaigns = !campaigns.some(camp => camp.carrier?.toUpperCase() === tx.carrier?.toUpperCase());
     if (carrierHasNoCampaigns) {
       logs.push({
         status: 'skipped',
-        title: 'Hãng không có trong danh sách chiến dịch',
-        details: `Hãng hàng không "${tx.carrier}" không tồn tại trong bất kỳ cấu hình chiến dịch nào của hệ thống. Bỏ qua tự động tính chiết khấu và giữ nguyên chiết khấu nguyên bản: +${tx.originalDiscount.toLocaleString()}đ.`
+        title: 'Hãng không có trong danh sách chương trình',
+        details: `Hãng hàng không "${tx.carrier}" không tồn tại trong bất kỳ cấu hình chương trình nào của hệ thống. Bỏ qua tự động tính chiết khấu và giữ nguyên chiết khấu nguyên bản: +${tx.originalDiscount.toLocaleString()}đ.`
       });
       return { 
         discount: tx.originalDiscount, 
@@ -1838,7 +1838,7 @@ export function CalculatorTab() {
     logs.push({
       status: 'info',
       title: 'Thông tin kiểm tra',
-      details: `Hãng bay (Chứng từ): ${tx.carrier} | Ngày mua: ${tx.bookingDate}${tx.appliedDate ? ` (Ngày áp dụng: ${tx.appliedDate})` : ''} (${bookingDateYMD}) | Kênh hiện tại: ${txChannel}`
+      details: `Hãng (Chứng từ): ${tx.carrier} | Ngày mua: ${tx.bookingDate}${tx.appliedDate ? ` (Ngày áp dụng: ${tx.appliedDate})` : ''} (${bookingDateYMD}) | Kênh hiện tại: ${txChannel}`
     });
 
     const selectedPolicy = policies.find(p => p.id === selectedPolicyId);
@@ -1880,15 +1880,15 @@ export function CalculatorTab() {
     if (matchedCampaigns.length === 0) {
       logs.push({
         status: 'skipped',
-        title: 'Không tìm thấy chiến dịch phù hợp',
-        details: `Không có chiến dịch nào cho hãng "${tx.carrier}" hoạt động vào ngày ${tx.bookingDate} trên kênh ${txChannel} (hoặc áp dụng cho tất cả các kênh).`
+        title: 'Không tìm thấy chương trình phù hợp',
+        details: `Không có chương trình nào cho hãng "${tx.carrier}" hoạt động vào ngày ${tx.bookingDate} trên kênh ${txChannel} (hoặc áp dụng cho tất cả các kênh).`
       });
       return { discount: 0, logs, cumulativeDiscount: 0, activeThreshold: null, multiplier: 1 };
     }
 
     logs.push({
       status: 'success',
-      title: `Tìm thấy ${matchedCampaigns.length} chiến dịch thô`,
+      title: `Tìm thấy ${matchedCampaigns.length} chương trình thô`,
       details: `Danh sách: ${matchedCampaigns.map(c => `[ID ${c.id}] ${c.name}`).join(', ')}`
     });
 
@@ -1905,7 +1905,7 @@ export function CalculatorTab() {
         if (hasExcludedTag) {
           logs.push({
             status: 'excluded',
-            title: `Chiến dịch #${camp.id} bị loại`,
+            title: `Chương trình #${camp.id} bị loại`,
             details: `Sân bay đầu tiên ${firstAirportIata} có nhãn tags [${firstAirportTags.join(', ')}] chứa nhãn loại trừ: "${camp.excluded_first_tag}".`
           });
           return false;
@@ -1917,14 +1917,14 @@ export function CalculatorTab() {
     if (finalMatchingCampaigns.length === 0) {
       logs.push({
         status: 'skipped',
-        title: 'Mọi chiến dịch đều bị loại trừ',
-        details: `Tất cả chiến dịch phù hợp đều bị loại bởi bộ lọc Sân bay đầu tiên loại trừ (${firstAirportIata}).`
+        title: 'Mọi chương trình đều bị loại trừ',
+        details: `Tất cả chương trình phù hợp đều bị loại bởi bộ lọc Sân bay đầu tiên loại trừ (${firstAirportIata}).`
       });
       return { discount: 0, logs, cumulativeDiscount: 0, activeThreshold: null, multiplier: 1 };
     }
 
     // Evaluate groups for campaigns:
-    // INDEX CHỈ ÁP DỤNG KHI GROUP = 0, KHI GROUP KHÁC 0 THÌ SẼ CỘNG DỒN. INDEX BẰNG NHAU THÌ CỘNG DỒN.
+    // ƯU TIÊN CHỈ ÁP DỤNG KHI GROUP = 0, KHI GROUP KHÁC 0 THÌ SẼ CỘNG DỒN. ƯU TIÊN BẰNG NHAU THÌ CỘNG DỒN.
     const group0Camps = finalMatchingCampaigns.filter(c => !c.group || c.group === 0);
     const nonGroup0Camps = finalMatchingCampaigns.filter(c => c.group && c.group !== 0);
 
@@ -1948,8 +1948,8 @@ export function CalculatorTab() {
 
       logs.push({
         status: 'info',
-        title: 'Xử lý nhóm Group 0 (Áp dụng Index)',
-        details: `Tìm thấy ${group0Camps.length} chiến dịch thuộc Group 0. Index thấp nhất là ${minIdx}. Chọn được ${selectedCampaigns.filter(c => !c.group || c.group === 0).length} chiến dịch có index bằng ${minIdx} (INDEX bằng nhau thì cộng dồn).`
+        title: 'Xử lý nhóm Group 0 (Áp dụng Ưu tiên)',
+        details: `Tìm thấy ${group0Camps.length} chương trình thuộc Group 0. Ưu tiên thấp nhất (độ ưu tiên cao nhất) là ${minIdx}. Chọn được ${selectedCampaigns.filter(c => !c.group || c.group === 0).length} chương trình có mức ưu tiên bằng ${minIdx} (ƯU TIÊN bằng nhau thì cộng dồn).`
       });
     }
 
@@ -1960,7 +1960,7 @@ export function CalculatorTab() {
       logs.push({
         status: 'info',
         title: 'Xử lý nhóm Group khác 0 (Cộng dồn)',
-        details: `Tìm thấy ${nonGroup0Camps.length} chiến dịch thuộc nhóm khác 0. Tất cả được cộng dồn (không lọc theo index).`
+        details: `Tìm thấy ${nonGroup0Camps.length} chương trình thuộc nhóm khác 0. Tất cả được cộng dồn (không lọc theo ưu tiên).`
       });
     }
 
@@ -1977,8 +1977,8 @@ export function CalculatorTab() {
     for (const selectedCamp of selectedCampaigns) {
       logs.push({
         status: 'info',
-        title: `Đánh giá Chiến dịch #${selectedCamp.id}`,
-        details: `Đang xét chiến dịch "${selectedCamp.name}" (Group: ${selectedCamp.group ?? 0}, Index: ${selectedCamp.index ?? 'N/A'}).`
+        title: `Đánh giá Chương trình #${selectedCamp.id}`,
+        details: `Đang xét chương trình "${selectedCamp.name}" (Group: ${selectedCamp.group ?? 0}, Ưu tiên: ${selectedCamp.index ?? 'N/A'}).`
       });
 
       // Lắp hành trình: Blackout check
@@ -1993,7 +1993,7 @@ export function CalculatorTab() {
         logs.push({
           status: 'blackout',
           title: `Bị chặn bởi Giai đoạn tạm dừng (Booking)`,
-          details: `Chiến dịch #${selectedCamp.id} tạm dừng đặt vé từ ngày mua.`
+          details: `Chương trình #${selectedCamp.id} tạm dừng đặt vé từ ngày mua.`
         });
         continue;
       }
@@ -2009,7 +2009,7 @@ export function CalculatorTab() {
         logs.push({
           status: 'blackout',
           title: `Bị chặn bởi Giai đoạn tạm dừng (Fly)`,
-          details: `Chiến dịch #${selectedCamp.id} tạm dừng bay vào ngày trong chuyến bay.`
+          details: `Chương trình #${selectedCamp.id} tạm dừng bay vào ngày trong chuyến bay.`
         });
         continue;
       }
@@ -2019,8 +2019,8 @@ export function CalculatorTab() {
       if (campDetails.length === 0) {
         logs.push({
           status: 'info',
-          title: `Không có chi tiết cho chiến dịch #${selectedCamp.id}`,
-          details: `Bỏ qua do chiến dịch không có cấu hình chi tiết.`
+          title: `Không có chi tiết cho chương trình #${selectedCamp.id}`,
+          details: `Bỏ qua do chương trình không có cấu hình chi tiết.`
         });
         continue;
       }
@@ -2137,7 +2137,7 @@ export function CalculatorTab() {
               diagDetails = `Hạng vé: ${seg.bookingClass || 'Trống'} | Nhãn khớp: "${routeMatchCombo.toUpperCase()}" | Cấu hình chiết khấu trống hoặc bằng 0`;
             }
           } else {
-            diagDetails = `Hành trình: ${seg.from}-${seg.to} | Không khớp với bất kỳ vùng bay nào trong chiến dịch #${selectedCamp.id}`;
+            diagDetails = `Hành trình: ${seg.from}-${seg.to} | Không khớp với bất kỳ vùng bay nào trong chương trình #${selectedCamp.id}`;
           }
 
           skippedSegments.push({
@@ -2159,7 +2159,7 @@ export function CalculatorTab() {
 
         campaignHasMatchedAnySegment = true;
 
-        // "NẾU CÓ HƠN 1 campaign_details ĐỦ ĐIỀU KIỆN TA SẼ SET THEO INDEX"
+        // "NẾU CÓ HƠN 1 campaign_details ĐỦ ĐIỀU KIỆN TA SẼ SET THEO ƯU TIÊN"
         const sortedDetails = [...matchedDetails].sort((a, b) => {
           const idxA = a.d.index !== null && a.d.index !== undefined ? a.d.index : 999999;
           const idxB = b.d.index !== null && b.d.index !== undefined ? b.d.index : 999999;
@@ -2212,7 +2212,7 @@ export function CalculatorTab() {
           logs.push({
             status: 'info',
             title: 'Dừng quét các chặng tiếp theo (CK theo Vé)',
-            details: `Chiến dịch #${selectedCamp.id} được cấu hình tính theo Vé và chặng "${seg.from}-${seg.to}" đã thoả mãn điều kiện. Bỏ qua quét các chặng còn lại.`
+            details: `Chương trình #${selectedCamp.id} được cấu hình tính theo Vé và chặng "${seg.from}-${seg.to}" đã thoả mãn điều kiện. Bỏ qua quét các chặng còn lại.`
           });
           break;
         }
@@ -2230,7 +2230,7 @@ export function CalculatorTab() {
     logs.push({
       status: 'info',
       title: 'Tổng cộng chiết khấu trước ngưỡng',
-      details: `Lũy kế các vòng lặp nhóm chiến dịch = ${cumulativeDiscount.toLocaleString()}đ`
+      details: `Lũy kế các vòng lặp nhóm chương trình = ${cumulativeDiscount.toLocaleString()}đ`
     });
 
     // Step 2: Apply Threshold modifier per applied campaign
@@ -2247,7 +2247,7 @@ export function CalculatorTab() {
 
     logs.push({
       status: 'info',
-      title: 'Đánh giá ngưỡng số dư cho từng chiến dịch',
+      title: 'Đánh giá ngưỡng số dư cho từng chương trình',
       details: `Số dư sau vé: Lũy kế trước + Công nợ - Giá bán = ${runningBalanceBefore.toLocaleString()} + ${cl.toLocaleString()} - ${tx.sellingPrice.toLocaleString()} = ${balanceBeforeMinusPrice.toLocaleString()}đ`
     });
 
@@ -2334,7 +2334,24 @@ export function CalculatorTab() {
     logs.push({
       status: 'success',
       title: 'Tổng chiết khấu cuối cùng sau ngưỡng',
-      details: `Tổng chiết khấu của các chiến dịch đã điều chỉnh = ${totalFinalDiscount.toLocaleString()}đ`
+      details: `Tổng chiết khấu của các chương trình đã điều chỉnh = ${totalFinalDiscount.toLocaleString()}đ`
+    });
+
+    const appliedGroups = new Set<number>();
+    appliedCampaignDetailsList.forEach(app => {
+      if (app.camp.group !== null && app.camp.group !== undefined) {
+        appliedGroups.add(app.camp.group);
+      }
+    });
+
+    const filteredSkippedSegments = skippedSegments.filter(seg => {
+      const camp = selectedCampaigns.find(c => c.id === seg.campaignId);
+      if (camp && camp.group !== null && camp.group !== undefined) {
+        if (appliedGroups.has(camp.group)) {
+          return false;
+        }
+      }
+      return true;
     });
 
     return { 
@@ -2344,7 +2361,7 @@ export function CalculatorTab() {
       activeThreshold: firstActiveThreshold, 
       multiplier: firstMultiplier, 
       appliedCampaigns,
-      skippedSegments
+      skippedSegments: filteredSkippedSegments
     };
   };
 
@@ -2755,7 +2772,7 @@ export function CalculatorTab() {
     const carrierHasNoCampaigns = !campaigns.some(camp => camp.carrier?.toUpperCase() === tx.carrier?.toUpperCase());
 
     if (carrierHasNoCampaigns) {
-      primaryReason = `Hãng hàng không "${tx.carrier}" không nằm trong bất kỳ cấu hình chiến dịch nào của hệ thống. Vì vậy, hệ thống bỏ qua việc tự động tính toán lại chiết khấu và giữ nguyên chiết khấu nguyên bản là +${tx.originalDiscount.toLocaleString()}đ.`;
+      primaryReason = `Hãng hàng không "${tx.carrier}" không nằm trong bất kỳ cấu hình chương trình nào của hệ thống. Vì vậy, hệ thống bỏ qua việc tự động tính toán lại chiết khấu và giữ nguyên chiết khấu nguyên bản là +${tx.originalDiscount.toLocaleString()}đ.`;
     } else if (discount > 0) {
       hasMatchedCampaigns = true;
       if (multiplier !== 1) {
@@ -2792,7 +2809,7 @@ export function CalculatorTab() {
           });
 
           if (matchedCampaigns.length === 0) {
-            primaryReason = `Không tìm thấy bất kỳ chiến dịch chiết khấu nào hoạt động cho hãng "${tx.carrier}" vào ngày mua vé ${tx.bookingDate} trên kênh bán hàng "${txChannel}" (hoặc áp dụng cho tất cả các kênh).`;
+            primaryReason = `Không tìm thấy bất kỳ chương trình chiết khấu nào hoạt động cho hãng "${tx.carrier}" vào ngày mua vé ${tx.bookingDate} trên kênh bán hàng "${txChannel}" (hoặc áp dụng cho tất cả các kênh).`;
           } else {
             hasMatchedCampaigns = true;
             // First airport check
@@ -2809,7 +2826,7 @@ export function CalculatorTab() {
             });
 
             if (firstAirportExcluded) {
-              primaryReason = `Chiến dịch bị loại trừ bởi Sân bay đầu tiên: Sân bay khởi hành "${firstAirportIata}" chứa thẻ (tag) loại trừ [${firstAirportTags.join(', ')}] được quy định trong cấu hình chiến dịch.`;
+              primaryReason = `Chương trình bị loại trừ bởi Sân bay đầu tiên: Sân bay khởi hành "${firstAirportIata}" chứa thẻ (tag) loại trừ [${firstAirportTags.join(', ')}] được quy định trong cấu hình chương trình.`;
             } else {
               // Blackout period check
               const isBookingBlackout = blackouts.some(b => 
@@ -2826,11 +2843,11 @@ export function CalculatorTab() {
               );
 
               if (isBookingBlackout || isFlyBlackout) {
-                primaryReason = `Giao dịch bị từ chối do rơi vào Giai đoạn tạm dừng (Blackout Period) của chiến dịch (bị chặn bởi thời gian mua vé hoặc thời gian bay trùng lịch tạm nghỉ).`;
+                primaryReason = `Giao dịch bị từ chối do rơi vào Giai đoạn tạm dừng (Blackout Period) của chương trình (bị chặn bởi thời gian mua vé hoặc thời gian bay trùng lịch tạm nghỉ).`;
               } else {
                 // Check campaign details
                 if (cumulativeDiscount === 0) {
-                  primaryReason = `Hạng đặt chỗ "${tx.bookingClass || 'Trống'}" hoặc hành trình "${tx.journey}" không nằm trong danh mục chi tiết được ưu đãi chiết khấu của chiến dịch này.`;
+                  primaryReason = `Hạng đặt chỗ "${tx.bookingClass || 'Trống'}" hoặc hành trình "${tx.journey}" không nằm trong danh mục chi tiết được ưu đãi chiết khấu của chương trình này.`;
                 } else if (multiplier === 0) {
                   const balanceBeforeWithLimit = balanceBefore + creditLimit;
                   const balanceBeforeMinusPrice = balanceBeforeWithLimit - tx.sellingPrice;
@@ -3736,15 +3753,15 @@ export function CalculatorTab() {
 
                                 return (
                                   <div className="mt-2.5 overflow-x-auto rounded border border-zinc-800 bg-zinc-950/40 text-[9px] shadow-inner flex-grow flex flex-col">
-                                    <div className="bg-zinc-900/50 border-b border-zinc-850 px-2 py-1 text-[8px] font-bold text-zinc-500 uppercase tracking-wider">
-                                      Bản đồ ma trận chiết khấu chiến dịch:
+                                    <div className="bg-zinc-900/50 border-b border-zinc-850 px-2 py-1 text-[8px] font-bold text-black uppercase tracking-wider">
+                                      Bản đồ ma trận chiết khấu:
                                     </div>
                                     <table className="w-full border-collapse text-center table-fixed flex-grow h-full">
                                       <thead>
-                                        <tr className="bg-zinc-950 border-b border-zinc-800 text-[8px] font-semibold text-zinc-400 uppercase">
-                                          <th className="py-1 px-1 border-r border-zinc-850 text-center w-24">Hạng</th>
+                                        <tr className="bg-zinc-950 border-b border-zinc-800 text-[8px] font-bold text-black uppercase">
+                                          <th className="py-1 px-1 border-r border-zinc-850 text-center w-24 text-black font-extrabold">Hạng</th>
                                           {cols.map((col, cIdx) => (
-                                            <th key={cIdx} className="py-1 px-1 border-r border-zinc-850 text-center font-bold text-amber-500/80">
+                                            <th key={cIdx} className="py-1 px-1 border-r border-zinc-850 text-center font-black text-black">
                                               {col}
                                             </th>
                                           ))}
@@ -3753,7 +3770,7 @@ export function CalculatorTab() {
                                       <tbody>
                                         {uniqueRows.map((rowKey, rIdx) => (
                                           <tr key={rIdx} className="border-b border-zinc-900 last:border-b-0">
-                                            <td className="py-1 px-1 border-r border-zinc-850 bg-zinc-950/80 text-zinc-400 font-bold text-center break-all whitespace-normal">
+                                            <td className="py-1 px-1 border-r border-zinc-850 bg-zinc-950/80 text-black font-extrabold text-center break-all whitespace-normal">
                                               {rowKey}
                                             </td>
                                             {cols.map((colTag, cIdx) => {
@@ -3833,55 +3850,126 @@ export function CalculatorTab() {
                               <div className="text-left">{seg.reason}</div>
                               {seg.campaignName && (
                                 <div className="text-zinc-450 text-[9px] font-normal italic mt-1 text-left">
-                                  (Đối soát theo chiến dịch: {seg.campaignName})
+                                  (Đối soát theo chương trình: {seg.campaignName})
                                 </div>
                               )}
                             </div>
 
-                            {/* Bảng đối chiếu quy định chiến dịch */}
+                            {/* Bảng đối chiếu quy định chương trình dạng ma trận */}
                             {(() => {
-                              const campRules = details.filter(d => d.campaign_id === seg.campaignId);
-                              if (campRules.length === 0) return null;
+                              const campDetails = details.filter(d => d.campaign_id === seg.campaignId);
+                              if (campDetails.length === 0) return null;
+
+                              const columnOrder = [
+                                'Âu, Úc, Mỹ',
+                                'Đông Bắc Á, Nam Á và Trung Đông - Châu Phi',
+                                'Đông Nam Á và Đông Dương'
+                              ];
+                              const uniqueTagsGrouped = Array.from(
+                                new Set((campDetails.flatMap(d => d.groups_tag || []) as string[]).map(mapTagToGroupCol))
+                              ).filter(Boolean).sort((a, b) => {
+                                const idxA = columnOrder.indexOf(a);
+                                const idxB = columnOrder.indexOf(b);
+                                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                                if (idxA !== -1) return -1;
+                                if (idxB !== -1) return 1;
+                                return a.localeCompare(b);
+                              });
+                              const cols = uniqueTagsGrouped.length > 0 ? uniqueTagsGrouped : ['Mặc định'];
+
+                              const getRowMaxVal = (rowKey: string): number => {
+                                const rowDetails = campDetails.filter(d => {
+                                  const dKey = !d.booking_class || d.booking_class.length === 0 ? 'Tất cả' : [...d.booking_class].sort().join('/');
+                                  return dKey === rowKey;
+                                });
+                                let maxVal = 0;
+                                rowDetails.forEach(d => {
+                                  if (d.amount !== null && d.amount !== undefined) {
+                                    if (d.amount > maxVal) maxVal = d.amount;
+                                  } else if (d.discount_percentage !== undefined && d.discount_percentage !== null) {
+                                    if (d.discount_percentage > maxVal) maxVal = d.discount_percentage;
+                                  }
+                                });
+                                return maxVal;
+                              };
+
+                              const uniqueRows = Array.from(
+                                new Set(
+                                  campDetails.map(d => {
+                                    if (!d.booking_class || d.booking_class.length === 0) return 'Tất cả';
+                                    return [...d.booking_class].sort().join('/');
+                                  })
+                                )
+                              ).sort((a, b) => {
+                                const valA = getRowMaxVal(a as string);
+                                const valB = getRowMaxVal(b as string);
+                                if (valA !== valB) return valB - valA;
+                                if (a === 'Tất cả') return 1;
+                                if (b === 'Tất cả') return -1;
+                                return (a as string).localeCompare(b as string);
+                              }) as string[];
+
                               return (
-                                <div className="mt-2.5 border border-rose-200 rounded-lg overflow-hidden bg-white flex-grow flex flex-col">
-                                  <div className="bg-rose-100/50 px-2.5 py-1.5 text-[9px] font-bold text-rose-950 uppercase border-b border-rose-200 text-left">
-                                    Bảng quy định chiết khấu của chiến dịch:
+                                <div className="mt-2.5 overflow-x-auto rounded border border-rose-200 bg-white text-[9px] shadow-inner flex-grow flex flex-col">
+                                  <div className="bg-rose-100/50 border-b border-rose-200 px-2 py-1 text-[8px] font-bold text-black uppercase tracking-wider text-left">
+                                    Bản đồ ma trận chiết khấu:
                                   </div>
-                                  <table className="w-full text-[10px] text-left border-collapse flex-grow h-full">
+                                  <table className="w-full border-collapse text-center table-fixed flex-grow h-full text-black">
                                     <thead>
-                                      <tr className="bg-rose-50 border-b border-rose-100 text-rose-800 font-bold">
-                                        <th className="px-2.5 py-1.5">Vùng bay (Nhãn)</th>
-                                        <th className="px-2.5 py-1.5 text-center">Hạng đặt chỗ</th>
-                                        <th className="px-2.5 py-1.5 text-right">Chiết khấu</th>
+                                      <tr className="bg-rose-50/50 border-b border-rose-200 text-[8px] font-bold text-black uppercase">
+                                        <th className="py-1 px-1 border-r border-rose-200 text-center w-24 text-black font-extrabold">Hạng</th>
+                                        {cols.map((col, cIdx) => (
+                                          <th key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center font-black text-black">
+                                            {col}
+                                          </th>
+                                        ))}
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-rose-100/60 text-zinc-700">
-                                      {campRules.map((rule) => {
-                                        let discountStr = '';
-                                        if (rule.discount_percentage > 0) {
-                                          discountStr = `${rule.discount_percentage}% ${rule.discount_base === 'FARE' ? 'Fare' : 'Bán'}`;
-                                        } else if (rule.amount) {
-                                          discountStr = `${rule.amount.toLocaleString()}đ`;
-                                        } else {
-                                          discountStr = '0đ';
-                                        }
-                                        
-                                        const classesStr = rule.booking_class && rule.booking_class.length > 0
-                                          ? rule.booking_class.map(c => c.toUpperCase()).join(', ')
-                                          : 'Tất cả';
-                                        
-                                        const groupsStr = rule.groups_tag && rule.groups_tag.length > 0
-                                          ? rule.groups_tag.map(t => t.toUpperCase()).join(' ↔ ')
-                                          : 'Tất cả';
-                                        
-                                        const isClassMatch = rule.booking_class && rule.booking_class.some(c => c.toUpperCase() === seg.segmentClass.toUpperCase());
-                                        const rowBg = isClassMatch ? 'bg-amber-50/75 font-semibold' : '';
+                                    <tbody>
+                                      {uniqueRows.map((rowKey, rIdx) => {
+                                        const isRowMatch = rowKey !== 'Tất cả' && rowKey.split('/').some(c => c.toUpperCase() === seg.segmentClass.toUpperCase());
+                                        const rowBgClass = isRowMatch ? 'bg-amber-50' : '';
 
                                         return (
-                                          <tr key={rule.id} className={`${rowBg} hover:bg-rose-50/40 transition-colors`}>
-                                            <td className="px-2.5 py-2 text-zinc-800">{groupsStr}</td>
-                                            <td className="px-2.5 py-2 text-center font-mono font-bold text-rose-700">{classesStr}</td>
-                                            <td className="px-2.5 py-2 text-right font-mono font-bold text-emerald-600">{discountStr}</td>
+                                          <tr key={rIdx} className={`border-b border-rose-100 last:border-b-0 ${rowBgClass}`}>
+                                            <td className="py-1 px-1 border-r border-rose-200 text-black font-extrabold text-center break-all whitespace-normal">
+                                              {rowKey}
+                                            </td>
+                                            {cols.map((colTag, cIdx) => {
+                                              const cellDetails = campDetails.filter(d => {
+                                                const dKey = !d.booking_class || d.booking_class.length === 0 ? 'Tất cả' : [...d.booking_class].sort().join('/');
+                                                const matchesRow = dKey === rowKey;
+                                                if (uniqueTagsGrouped.length === 0) return matchesRow;
+                                                const matchesCol = (d.groups_tag || []).some(t => mapTagToGroupCol(t) === colTag);
+                                                return matchesRow && matchesCol;
+                                              });
+
+                                              const hasData = cellDetails.length > 0;
+
+                                              if (hasData) {
+                                                const detail = cellDetails[0];
+                                                const amountStr = detail.amount !== null && detail.amount !== undefined ? `${detail.amount.toLocaleString()}` : '';
+                                                const pctStr = detail.discount_percentage !== undefined && detail.discount_percentage !== 0 ? `${detail.discount_percentage}%` : '';
+                                                const displayVal = amountStr || pctStr;
+
+                                                return (
+                                                  <td key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center font-mono text-black font-bold">
+                                                    {displayVal}
+                                                    {pctStr && (
+                                                      <span className="text-[7px] text-zinc-600 font-sans block leading-none mt-0.5">
+                                                        ({detail.discount_base})
+                                                      </span>
+                                                    )}
+                                                  </td>
+                                                );
+                                              } else {
+                                                return (
+                                                  <td key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center text-black font-bold">
+                                                    —
+                                                  </td>
+                                                );
+                                              }
+                                            })}
                                           </tr>
                                         );
                                       })}

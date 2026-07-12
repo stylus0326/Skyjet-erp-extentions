@@ -3581,7 +3581,7 @@ function optimizeHtmlTable(table) {
     7: { icon: '🔢', label: 'Qty' },
     8: { icon: '📍', label: 'Hành trình' },
     9: { icon: '🌎', label: 'ND/QT' },
-    10: { icon: '✈️', label: 'Hãng bay' },
+    10: { icon: '✈️', label: 'Hãng' },
     11: { icon: '💺', label: 'Hạng đặt' },
     12: { icon: '🏢', label: 'Nhà cung cấp' },
     13: { icon: '📅', label: 'Ngày xuất' },
@@ -3659,7 +3659,7 @@ function optimizeHtmlTable(table) {
   
   // Tiến hành xóa các cell của cột trùng lặp để thu gọn bảng
   if (commonCols.length > 0) {
-    // Duyệt ngược từ index lớn về nhỏ tránh bị lệch chỉ mục khi xóa
+    // Duyệt ngược từ index lớn về nhỏ tránh bị lệch vị trí khi xóa
     commonCols.sort((a, b) => b - a);
     
     // Xóa trong thead

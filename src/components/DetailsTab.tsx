@@ -150,7 +150,7 @@ const mapTagToGroupCol = (tag: string): string => {
   return tag;
 };
 
-export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
+export function DetailsTab({ hideExpired, isSelected }: { hideExpired?: boolean; isSelected?: boolean }) {
   const [details, setDetails] = useState<CampaignDetail[]>([]);
   const [campaignsMap, setCampaignsMap] = useState<Record<number, Campaign>>({});
   
@@ -379,14 +379,17 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
   useEffect(() => {
     const handleSearch = (e: Event) => {
+      if (isSelected === false) return;
       const query = (e as CustomEvent).detail;
       setSearchQuery(query);
     };
     const handleRefresh = () => {
+      if (isSelected === false) return;
       fetchData(true);
       fetchAirportTags(true);
     };
     const handleAdd = (e: Event) => {
+      if (isSelected === false) return;
       const mode = (e as CustomEvent).detail || 'standard';
       openAddModal(mode);
     };
@@ -400,7 +403,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       window.removeEventListener('skyjet-refresh', handleRefresh);
       window.removeEventListener('skyjet-add', handleAdd);
     };
-  }, []);
+  }, [isSelected]);
 
   const handleSort = (field: keyof CampaignDetail) => {
     if (sortField === field) {
@@ -718,11 +721,11 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
       if (err) throw err;
 
-      showToast(`Đã xóa chi tiết chiến dịch #${deleteId} thành công.`);
+      showToast(`Đã xóa chi tiết #${deleteId} thành công.`);
       fetchData(true);
     } catch (err: any) {
       console.error('Error deleting campaign detail:', err);
-      showToast(err?.message || 'Không thể xóa chi tiết chiến dịch.', 'error');
+      showToast(err?.message || 'Không thể xóa chi tiết.', 'error');
     } finally {
       setIsDeleteConfirmOpen(false);
       setDeleteId(null);
@@ -790,7 +793,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       }
 
       if (payloads.length === 0) {
-        showToast('Không có dữ liệu hợp lệ trong ma trận (yêu cầu điền đủ Hạng vé, Group Tag và Giá trị)!', 'error');
+        showToast('Không có dữ liệu hợp lệ (yêu cầu điền đủ Hạng vé, Group Tag và Giá trị)!', 'error');
         return;
       }
 
@@ -811,14 +814,14 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
 
         if (err) throw err;
         showToast(isEditMode && !isDuplicateMode
-          ? `Đã cập nhật ma trận chi tiết chiến dịch (${payloads.length} mục) thành công.`
-          : `Đã nhân bản/thêm thành công ${payloads.length} chi tiết chiến dịch từ ma trận.`
+          ? `Đã cập nhật bảng chi tiết (${payloads.length} mục) thành công.`
+          : `Đã nhân bản/thêm thành công ${payloads.length} chi tiết từ bảng.`
         );
         setIsModalOpen(false);
         fetchData(true);
       } catch (err: any) {
         console.error('Error saving campaign details matrix:', err);
-        showToast(err?.message || 'Lỗi xảy ra khi lưu ma trận chi tiết chiến dịch.', 'error');
+        showToast(err?.message || 'Lỗi xảy ra khi lưu bảng chi tiết.', 'error');
       } finally {
         setLoading(false);
       }
@@ -890,7 +893,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
           .insert([payload]);
 
         if (err) throw err;
-        showToast(isDuplicateMode ? 'Đã nhân bản chi tiết chiến dịch thành công' : 'Campaign detail created successfully');
+        showToast(isDuplicateMode ? 'Đã nhân bản chi tiết thành công' : 'Campaign detail created successfully');
       }
       setIsModalOpen(false);
       fetchData(true);
@@ -1089,9 +1092,9 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
             <div className="w-12 h-12 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto border border-slate-200">
               <Layers className="w-6 h-6" />
             </div>
-            <h3 className="text-slate-700 font-semibold text-base">Không tìm thấy chi tiết chiến dịch nào</h3>
+             <h3 className="text-slate-700 font-semibold text-base">Không tìm thấy chi tiết nào</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo chi tiết chiến dịch (mức giảm giá, phân hạng vé) đầu tiên của bạn!"}
+              {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo chi tiết (mức giảm giá, phân hạng vé) đầu tiên của bạn!"}
             </p>
 
           </div>
@@ -1156,12 +1159,12 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                 <ChevronRight className="w-4 h-4 text-slate-400" />
                               )}
                               <span className="font-bold text-slate-800 text-sm">
-                                {linkedCampaign ? linkedCampaign.name : 'Chiến dịch không xác định'}
+                                {linkedCampaign ? linkedCampaign.name : 'Chương trình không xác định'}
                               </span>
                               {linkedCampaign?.carrier && (
                                 <div className="flex items-center gap-1.5">
                                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600">
-                                    Hãng bay: {linkedCampaign.carrier}
+                                    Hãng: {linkedCampaign.carrier}
                                   </span>
                                   <button
                                     type="button"
@@ -1170,7 +1173,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                       openEditCampaignMatrixModal(group.campaignId, group.details);
                                     }}
                                     className="p-1 rounded hover:bg-slate-100 text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
-                                    title="Sửa toàn bộ chiến dịch theo ma trận"
+                                    title="Sửa toàn bộ chương trình theo bảng chi tiết"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
@@ -1193,7 +1196,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                                 <div className="flex items-center justify-between">
                                   <div className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                    Cấu hình Ma Trận chiết khấu / giảm giá
+                                    Chi tiết chiết khấu / giảm giá
                                   </div>
                                   <div className="text-[10px] text-slate-500 font-medium">
                                     Mẹo: Rê chuột vào ô giá trị để Sửa/Xóa. Click ô trống bất kỳ để Thêm nhanh giá vé.
@@ -1533,7 +1536,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                 <>
                   {/* Campaign FK Dropdown */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chiến dịch áp dụng *</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chương trình áp dụng *</label>
                     <RelationSelector
                       selectedCampaignId={formCampaignId}
                       onChange={(campaignId) => setFormCampaignId(campaignId)}
@@ -1543,9 +1546,9 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                 </>
               ) : (
                 <div className="space-y-4">
-                  {/* Chọn Chiến dịch */}
+                  {/* Chọn Chương trình */}
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chiến dịch áp dụng *</label>
+                    <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chương trình áp dụng *</label>
                     <RelationSelector
                       selectedCampaignId={formCampaignId}
                       onChange={(campaignId) => setFormCampaignId(campaignId)}
@@ -1626,7 +1629,7 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
                   {/* Matrix Editor Grid */}
                   <div className="space-y-1.5 mt-4">
                     <label className="block text-xs font-bold text-zinc-400">
-                      Ma trận chiết khấu ({formDiscountType === 'percentage' ? 'Tỷ lệ %' : 'Số tiền cố định VNĐ'})
+                      Chi tiết chiết khấu ({formDiscountType === 'percentage' ? 'Tỷ lệ %' : 'Số tiền cố định VNĐ'})
                     </label>
                     <div className="overflow-x-auto border border-zinc-800 rounded-lg bg-zinc-950/20 max-h-96">
                       <table className="w-full border-collapse">
@@ -2323,8 +2326,8 @@ export function DetailsTab({ hideExpired }: { hideExpired?: boolean }) {
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
         isOpen={isDeleteConfirmOpen}
-        title="Xác nhận xóa chi tiết chiến dịch"
-        message={`Bạn có chắc chắn muốn xóa chi tiết chiến dịch #${deleteId} này không? Hành động này không thể hoàn tác.`}
+        title="Xác nhận xóa chi tiết"
+        message={`Bạn có chắc chắn muốn xóa chi tiết #${deleteId} này không? Hành động này không thể hoàn tác.`}
         onConfirm={confirmDelete}
         onCancel={() => {
           setIsDeleteConfirmOpen(false);

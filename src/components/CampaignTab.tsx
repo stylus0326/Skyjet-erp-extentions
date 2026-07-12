@@ -11,8 +11,9 @@ import { CustomSelect } from './CustomSelect';
 import { CustomDateRangePicker } from './CustomDateRangePicker';
 import { CustomButton } from './CustomButton';
 
-export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
+export function CampaignTab({ hideExpired, isSelected }: { hideExpired?: boolean; isSelected?: boolean }) {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [blackoutPeriods, setBlackoutPeriods] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -100,24 +101,11 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
       if (data) {
         const iatas = new Set<string>();
         const normalTags = new Set<string>();
-        
         data.forEach((row: any) => {
-          if (row.iata && typeof row.iata === 'string') {
-            const cleanIata = row.iata.trim().toUpperCase();
-            if (cleanIata) {
-              iatas.add(cleanIata);
-            }
-          }
+          if (row.iata) iatas.add(row.iata);
           if (row.tags && Array.isArray(row.tags)) {
-            row.tags.forEach((tag: string) => {
-              if (tag && tag.trim()) {
-                const cleanTag = tag.trim();
-                if (/^[A-Za-z]{3}$/.test(cleanTag)) {
-                  iatas.add(cleanTag.toUpperCase());
-                } else {
-                  normalTags.add(cleanTag);
-                }
-              }
+            row.tags.forEach((t: string) => {
+              if (t && t.trim() !== '') normalTags.add(t.trim());
             });
           }
         });
@@ -135,8 +123,10 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
   const fetchCampaigns = async (force = false) => {
     if (!force) {
       const cached = localStorage.getItem('skyjet_cache_campaigns');
-      if (cached) {
+      const cachedBlackouts = localStorage.getItem('skyjet_cache_campaigns_blackouts');
+      if (cached && cachedBlackouts) {
         setCampaigns(JSON.parse(cached));
+        setBlackoutPeriods(JSON.parse(cachedBlackouts));
         setLoading(false);
         return;
       }
@@ -151,9 +141,18 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
       if (err) {
         throw err;
       }
+
+      const { data: bData, error: bErr } = await supabase
+        .from('campaign_blackout_periods')
+        .select('*');
+
       const list = (data as Campaign[]) || [];
+      const bList = bData || [];
+
       setCampaigns(list);
+      setBlackoutPeriods(bList);
       localStorage.setItem('skyjet_cache_campaigns', JSON.stringify(list));
+      localStorage.setItem('skyjet_cache_campaigns_blackouts', JSON.stringify(bList));
     } catch (err: any) {
       console.error('Error fetching campaigns:', err);
       setError(err?.message || 'Failed to fetch campaigns from Supabase.');
@@ -170,13 +169,16 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
 
   useEffect(() => {
     const handleSearch = (e: Event) => {
+      if (isSelected === false) return;
       const query = (e as CustomEvent).detail;
       setSearchQuery(query);
     };
     const handleRefresh = () => {
+      if (isSelected === false) return;
       fetchCampaigns(true);
     };
     const handleAdd = () => {
+      if (isSelected === false) return;
       openAddModal();
     };
 
@@ -189,7 +191,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
       window.removeEventListener('skyjet-refresh', handleRefresh);
       window.removeEventListener('skyjet-add', handleAdd);
     };
-  }, []);
+  }, [isSelected]);
 
   const handleSort = (field: keyof Campaign) => {
     if (sortField === field) {
@@ -253,9 +255,9 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
         .select('id')
         .eq('campaign_id', id);
 
-      let msg = `Bạn có chắc chắn muốn xóa chiến dịch #${id} này không? Hành động này không thể hoàn tác.`;
+      let msg = `Bạn có chắc chắn muốn xóa chương trình #${id} này không? Hành động này không thể hoàn tác.`;
       if ((bPeriods && bPeriods.length > 0) || (cDetails && cDetails.length > 0)) {
-        msg = `Cảnh báo: Chiến dịch #${id} hiện có các giai đoạn tạm dừng hoặc chi tiết chiến dịch đang phụ thuộc vào nó. Việc xóa chiến dịch có thể làm mất các dữ liệu liên quan này. Bạn có chắc chắn muốn tiếp tục xóa không?`;
+        msg = `Cảnh báo: Chương trình #${id} hiện có các giai đoạn tạm dừng hoặc chi tiết đang phụ thuộc vào nó. Việc xóa chương trình có thể làm mất các dữ liệu liên quan này. Bạn có chắc chắn muốn tiếp tục xóa không?`;
       }
 
       setDeleteId(id);
@@ -264,7 +266,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
     } catch (err) {
       console.error('Error checking dependencies:', err);
       setDeleteId(id);
-      setDeleteMessage(`Bạn có chắc chắn muốn xóa chiến dịch #${id} này không? Hành động này không thể hoàn tác.`);
+      setDeleteMessage(`Bạn có chắc chắn muốn xóa chương trình #${id} này không? Hành động này không thể hoàn tác.`);
       setIsDeleteConfirmOpen(true);
     }
   };
@@ -279,11 +281,11 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
 
       if (err) throw err;
 
-      showToast(`Đã xóa chiến dịch #${deleteId} thành công.`);
+      showToast(`Đã xóa chương trình #${deleteId} thành công.`);
       fetchCampaigns(true);
     } catch (err: any) {
       console.error('Error deleting campaign:', err);
-      showToast(err?.message || 'Không thể xóa chiến dịch. Vui lòng kiểm tra lại liên kết khoá ngoại.', 'error');
+      showToast(err?.message || 'Không thể xóa chương trình. Vui lòng kiểm tra lại liên kết khoá ngoại.', 'error');
     } finally {
       setIsDeleteConfirmOpen(false);
       setDeleteId(null);
@@ -434,16 +436,16 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
         {loading ? (
           <div className="p-12 text-center space-y-4">
             <RefreshCw className="w-8 h-8 text-zinc-400 animate-spin mx-auto" />
-            <p className="text-sm text-zinc-400 font-medium">Đang tải các chiến dịch từ Supabase...</p>
+            <p className="text-sm text-zinc-400 font-medium">Đang tải các chương trình từ Supabase...</p>
           </div>
         ) : sortedCampaigns.length === 0 ? (
           <div className="p-12 text-center max-w-sm mx-auto space-y-3">
             <div className="w-12 h-12 bg-zinc-900/50 text-zinc-500 rounded-full flex items-center justify-center mx-auto border border-zinc-850">
               <FileSpreadsheet className="w-6 h-6" />
             </div>
-            <h3 className="text-zinc-200 font-semibold text-base">Không tìm thấy chiến dịch nào</h3>
+            <h3 className="text-zinc-200 font-semibold text-base">Không tìm thấy chương trình nào</h3>
             <p className="text-xs text-zinc-500 leading-relaxed">
-              {searchQuery ? "Không có chiến dịch nào khớp bộ lọc của bạn." : "Khởi tạo chiến dịch đầu tiên của bạn tại đây!"}
+              {searchQuery ? "Không có chương trình nào khớp bộ lọc của bạn." : "Khởi tạo chương trình đầu tiên của bạn tại đây!"}
             </p>
 
           </div>
@@ -460,13 +462,13 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                   </th>
                   <th onClick={() => handleSort('name')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
-                      Tên Chiến dịch
+                      Tên Chương trình
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
                   <th onClick={() => handleSort('carrier')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
-                      Hãng bay
+                      Hãng
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
@@ -481,7 +483,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                   </th>
                   <th onClick={() => handleSort('index')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
-                      Chỉ mục
+                      Ưu tiên
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
@@ -501,111 +503,173 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[11px] text-slate-700">
-                {sortedCampaigns.map((campaign) => {
-                  const isExpired = isCampaignExpired(campaign.valid_to);
-                  return (
-                    <tr key={campaign.id} className={isExpired ? 'opacity-50' : ''}>
-                      <td className="font-mono font-bold text-xs text-slate-400">
-                        #{campaign.id}
-                      </td>
-                      <td className={`font-semibold ${isExpired ? 'line-through text-slate-400 font-normal' : 'text-slate-800'}`}>
-                        {campaign.name || '—'}
-                      </td>
-                      <td>
-                        {campaign.carrier ? (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
-                            isExpired 
-                              ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' 
-                              : 'bg-slate-50 text-slate-700 border-slate-200'
-                          }`}>
-                            {campaign.carrier}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 font-normal">—</span>
-                        )}
-                      </td>
-                      <td className="text-slate-600 text-xs whitespace-nowrap">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-slate-400">Từ: <span className="font-mono text-slate-600">{campaign.valid_from || '—'}</span></span>
-                          <span className="text-slate-400">Đến: <span className="font-mono text-slate-600">{campaign.valid_to || '—'}</span></span>
-                        </div>
-                      </td>
-                      <td className="text-slate-600 text-xs whitespace-nowrap">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-slate-400">Từ: <span className="font-mono text-slate-600">{campaign.departure_date_from || '—'}</span></span>
-                          <span className="text-slate-400">Đến: <span className="font-mono text-slate-600">{campaign.departure_date_to || '—'}</span></span>
-                        </div>
-                      </td>
-                      <td className="max-w-[120px] truncate text-xs text-slate-550 font-mono" title={campaign.excluded_first_tag}>
-                        {campaign.excluded_first_tag || '—'}
-                      </td>
-                      <td className="text-slate-500 font-mono text-xs">
-                        {campaign.group !== null ? campaign.group : '—'}
-                      </td>
-                      <td className="text-slate-500 font-mono text-xs">
-                        {campaign.index !== null ? campaign.index : '—'}
-                      </td>
-                    <td>
-                      {(() => {
-                        const chan = campaign.channel || 'ALL';
-                        if (chan === 'PARTNER') {
-                          return (
-                            <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              PARTNER
-                            </span>
+                {(() => {
+                  const groupedMap: { [key: string]: Campaign[] } = {};
+                  sortedCampaigns.forEach(c => {
+                    const groupKey = c.group !== null && c.group !== undefined ? `Nhóm ${c.group}` : 'Không có Nhóm';
+                    if (!groupedMap[groupKey]) {
+                      groupedMap[groupKey] = [];
+                    }
+                    groupedMap[groupKey].push(c);
+                  });
+
+                  const groupKeys = Object.keys(groupedMap).sort((a, b) => {
+                    if (a === 'Không có Nhóm') return 1;
+                    if (b === 'Không có Nhóm') return -1;
+                    const numA = parseInt(a.replace('Nhóm ', ''), 10);
+                    const numB = parseInt(b.replace('Nhóm ', ''), 10);
+                    return numA - numB;
+                  });
+
+                  return groupKeys.map(groupKey => {
+                    const groupCampaigns = groupedMap[groupKey];
+                    return (
+                      <React.Fragment key={groupKey}>
+                        <tr className="bg-slate-100/70 border-y border-slate-200">
+                          <td colSpan={11} className="px-3 py-1.5 text-slate-800 font-extrabold text-[11px] text-left uppercase tracking-wider">
+                            📁 {groupKey} ({groupCampaigns.length} chương trình)
+                          </td>
+                        </tr>
+                        {groupCampaigns.map((campaign) => {
+                          const isExpired = isCampaignExpired(campaign.valid_to);
+                          const todayStr = new Date().toISOString().split('T')[0];
+                          const campaignBlackouts = blackoutPeriods.filter(p => p.campaign_id === campaign.id);
+                          const activeBookingBlackout = campaignBlackouts.find(p => 
+                            p.type === 'BOOKING' &&
+                            todayStr >= p.start_date &&
+                            todayStr <= p.end_date
                           );
-                        } else if (chan === 'FLIGHTVN') {
-                          return (
-                            <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                              FLIGHTVN
-                            </span>
+                          const activeFlyBlackout = campaignBlackouts.find(p => 
+                            p.type === 'FLY' &&
+                            todayStr >= p.start_date &&
+                            todayStr <= p.end_date
                           );
-                        } else {
+
                           return (
-                            <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                              ALL
-                            </span>
+                            <tr key={campaign.id} className={isExpired ? 'opacity-50' : ''}>
+                              <td className="font-mono font-bold text-xs text-slate-400">
+                                #{campaign.id}
+                              </td>
+                              <td className={`font-semibold ${isExpired ? 'line-through text-slate-400 font-normal' : 'text-slate-800'}`}>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span>{campaign.name || '—'}</span>
+                                  {activeBookingBlackout && (
+                                    <span 
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-600 border border-rose-200 shadow-xs" 
+                                      title={`Tạm ngưng đặt vé từ ${activeBookingBlackout.start_date} đến ${activeBookingBlackout.end_date}`}
+                                    >
+                                      Tạm ngưng đặt vé
+                                    </span>
+                                  )}
+                                  {activeFlyBlackout && (
+                                    <span 
+                                      className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-50 text-amber-600 border border-amber-200 shadow-xs" 
+                                      title={`Tạm ngưng ngày bay từ ${activeFlyBlackout.start_date} đến ${activeFlyBlackout.end_date}`}
+                                    >
+                                      Tạm ngưng bay
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td>
+                                {campaign.carrier ? (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
+                                    isExpired 
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200 line-through' 
+                                      : 'bg-slate-50 text-slate-700 border-slate-200'
+                                  }`}>
+                                    {campaign.carrier}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-normal">—</span>
+                                )}
+                              </td>
+                              <td className="text-slate-600 text-xs whitespace-nowrap">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-slate-400">Từ: <span className="font-mono text-slate-600">{campaign.valid_from || '—'}</span></span>
+                                  <span className="text-slate-400">Đến: <span className="font-mono text-slate-600">{campaign.valid_to || '—'}</span></span>
+                                </div>
+                              </td>
+                              <td className="text-slate-600 text-xs whitespace-nowrap">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-slate-400">Từ: <span className="font-mono text-slate-600">{campaign.departure_date_from || '—'}</span></span>
+                                  <span className="text-slate-400">Đến: <span className="font-mono text-slate-600">{campaign.departure_date_to || '—'}</span></span>
+                                </div>
+                              </td>
+                              <td className="max-w-[120px] truncate text-xs text-slate-550 font-mono" title={campaign.excluded_first_tag}>
+                                {campaign.excluded_first_tag || '—'}
+                              </td>
+                              <td className="text-slate-500 font-mono text-xs">
+                                {campaign.group !== null ? campaign.group : '—'}
+                              </td>
+                              <td className="text-slate-500 font-mono text-xs">
+                                {campaign.index !== null ? campaign.index : '—'}
+                              </td>
+                              <td>
+                                {(() => {
+                                  const chan = campaign.channel || 'ALL';
+                                  if (chan === 'PARTNER') {
+                                    return (
+                                      <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                        PARTNER
+                                      </span>
+                                    );
+                                  } else if (chan === 'FLIGHTVN') {
+                                    return (
+                                      <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                        FLIGHTVN
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-slate-50 text-slate-700 border border-slate-200 shadow-sm gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                        ALL
+                                      </span>
+                                    );
+                                  }
+                                })()}
+                              </td>
+                              <td>
+                                {campaign.ticket ? (
+                                  <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    Vé
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200 shadow-sm gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                    Chặng
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => openEditModal(campaign)}
+                                    className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
+                                    title="Sửa"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(campaign.id)}
+                                    className="p-1 rounded border border-red-200 bg-red-50/50 text-red-600 hover:bg-red-100/80 transition-all cursor-pointer"
+                                    title="Xóa"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
                           );
-                        }
-                      })()}
-                    </td>
-                    <td>
-                      {campaign.ticket ? (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Vé
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-slate-50 text-slate-600 border border-slate-200 shadow-sm gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                          Chặng
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(campaign)}
-                          className="p-1 rounded border border-[var(--border-light)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer"
-                          title="Sửa"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(campaign.id)}
-                          className="p-1 rounded border border-red-200 bg-red-50/50 text-red-600 hover:bg-red-100/80 transition-all cursor-pointer"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  );
-                })}
+                        })}
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
@@ -625,7 +689,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
               {/* Standard inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Tên Chiến dịch *</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Tên Chương trình *</label>
                   <input
                     type="text"
                     required
@@ -637,11 +701,11 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Hãng bay *</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Hãng *</label>
                   <CustomSelect
                     value={formCarrier}
                     onChange={setFormCarrier}
-                    placeholder="— Chọn Hãng bay —"
+                    placeholder="— Chọn Hãng —"
                     options={airlinesList.map(iata => ({ value: iata, label: iata }))}
                   />
                 </div>
@@ -693,7 +757,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Chỉ mục (Số nguyên)</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Ưu tiên (Số nguyên)</label>
                   <input
                     type="number"
                     placeholder="Ví dụ: 10"
@@ -742,7 +806,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
                   type="submit"
                   variant="primary"
                 >
-                  {isEditMode ? 'Lưu thay đổi' : 'Tạo Chiến dịch'}
+                  {isEditMode ? 'Lưu thay đổi' : 'Tạo Chương trình'}
                 </CustomButton>
               </div>
             </form>
@@ -752,7 +816,7 @@ export function CampaignTab({ hideExpired }: { hideExpired?: boolean }) {
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
         isOpen={isDeleteConfirmOpen}
-        title="Xác nhận xóa chiến dịch"
+        title="Xác nhận xóa chương trình"
         message={deleteMessage}
         onConfirm={confirmDelete}
         onCancel={() => {

@@ -110,11 +110,11 @@ async function seed() {
   // 3. Gieo dữ liệu cho bảng campaign
   const { data: existingCampaigns, error: errCampaignsCheck } = await supabase.from('campaign').select('id').limit(1);
   if (!errCampaignsCheck && (!existingCampaigns || existingCampaigns.length === 0)) {
-    console.log("🌱 Bảng [campaign] trống. Đang thêm các chiến dịch mẫu...");
+    console.log("🌱 Bảng [campaign] trống. Đang thêm các chương trình mẫu...");
     const sampleCampaigns = [
       {
         id: 201,
-        name: "Chiến dịch Hè Rực Rỡ 2026",
+        name: "Chương trình Hè Rực Rỡ 2026",
         carrier: "VN",
         valid_from: "2026-06-01",
         valid_to: "2026-08-31",
@@ -126,7 +126,7 @@ async function seed() {
       },
       {
         id: 202,
-        name: "Chiến dịch Thu Quyến Rũ 2026",
+        name: "Chương trình Thu Quyến Rũ 2026",
         carrier: "QH",
         valid_from: "2026-09-01",
         valid_to: "2026-11-30",
@@ -140,12 +140,12 @@ async function seed() {
 
     const { error: insertErr } = await supabase.from('campaign').insert(sampleCampaigns);
     if (insertErr) {
-      console.error("❌ Thất bại khi thêm chiến dịch mẫu:", insertErr.message);
+      console.error("❌ Thất bại khi thêm chương trình mẫu:", insertErr.message);
     } else {
-      console.log("✅ Thêm chiến dịch mẫu THÀNH CÔNG!");
+      console.log("✅ Thêm chương trình mẫu THÀNH CÔNG!");
 
-      // 4. Gieo dữ liệu cho bảng campaign_details và campaign_blackout_periods sau khi đã có chiến dịch
-      console.log("🌱 Đang thêm chi tiết chiến dịch và thời gian loại trừ...");
+      // 4. Gieo dữ liệu cho bảng campaign_details và campaign_blackout_periods sau khi đã có chương trình
+      console.log("🌱 Đang thêm chi tiết chương trình và thời gian loại trừ...");
       
       const sampleDetails = [
         {
@@ -195,8 +195,8 @@ async function seed() {
       ];
 
       const { error: detailsErr } = await supabase.from('campaign_details').insert(sampleDetails);
-      if (detailsErr) console.error("❌ Lỗi thêm chi tiết chiến dịch mẫu:", detailsErr.message);
-      else console.log("✅ Thêm chi tiết chiến dịch THÀNH CÔNG!");
+      if (detailsErr) console.error("❌ Lỗi thêm chi tiết mẫu:", detailsErr.message);
+      else console.log("✅ Thêm chi tiết THÀNH CÔNG!");
 
       const { error: blackoutErr } = await supabase.from('campaign_blackout_periods').insert(sampleBlackouts);
       if (blackoutErr) console.error("❌ Lỗi thêm thời gian loại trừ mẫu:", blackoutErr.message);

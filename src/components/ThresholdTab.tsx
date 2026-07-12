@@ -9,7 +9,7 @@ import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { TagInput } from './TagInput';
 import { CustomButton } from './CustomButton';
 
-export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies' | 'thresholds'; hideExpired?: boolean }) {
+export function ThresholdTab({ activeTab, hideExpired, isSelected }: { activeTab?: 'policies' | 'thresholds'; hideExpired?: boolean; isSelected?: boolean }) {
   const [internalSubTab, setInternalSubTab] = useState<'policies' | 'thresholds'>('policies');
   const activeSubTab = activeTab || internalSubTab;
   const setActiveSubTab = (tab: 'policies' | 'thresholds') => {
@@ -155,7 +155,11 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
       fetchData(true);
     };
     const handleAdd = (e: Event) => {
+      if (isSelected === false) return; // Prevent triggering if tab is not active
       const subtab = (e as CustomEvent).detail;
+      // Prevent opening modal if the component is mounted but the parent tab is not matching
+      if (activeTab && activeTab !== subtab) return;
+      if (subtab !== activeSubTab) return; 
       if (subtab === 'policies') {
         openAddPolModal();
       } else {
@@ -442,7 +446,11 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
       {!activeTab && (
         <div className="flex gap-2 p-1 bg-zinc-900/60 rounded-xl border border-zinc-800/80">
           <button
-            onClick={() => { setActiveSubTab('policies'); setSearchQuery(''); }}
+            onClick={() => { 
+              setActiveSubTab('policies'); 
+              setSearchQuery(''); 
+              window.dispatchEvent(new CustomEvent('skyjet-threshold-subtab-change', { detail: 'policies' }));
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === 'policies'
                 ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
@@ -453,7 +461,11 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
             Chính sách nhóm
           </button>
           <button
-            onClick={() => { setActiveSubTab('thresholds'); setSearchQuery(''); }}
+            onClick={() => { 
+              setActiveSubTab('thresholds'); 
+              setSearchQuery(''); 
+              window.dispatchEvent(new CustomEvent('skyjet-threshold-subtab-change', { detail: 'thresholds' }));
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeSubTab === 'thresholds'
                 ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700'
@@ -523,7 +535,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                     <th>Đại lý</th>
                     <th onClick={() => handlePolSort('index')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
-                        Chỉ mục
+                        Ưu tiên
                         <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
@@ -643,7 +655,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                         <ArrowUpDown className="w-3 h-3 text-slate-400" />
                       </div>
                     </th>
-                    <th className="w-full">Chiến dịch</th>
+                    <th className="w-full">Chương trình</th>
                     <th onClick={() => handleThSort('tag')} className="cursor-pointer select-none">
                       <div className="flex items-center gap-1">
                         Tag
@@ -773,7 +785,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 mb-1">Chỉ mục</label>
+                  <label className="block text-xs font-bold text-zinc-400 mb-1">Ưu tiên</label>
                   <input
                     type="number"
                     placeholder="Ví dụ: 0"
@@ -903,7 +915,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
             <form onSubmit={handleThSubmit} className="p-4 space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-zinc-400">Chiến dịch</label>
+                  <label className="block text-xs font-bold text-zinc-400">Chương trình</label>
                 </div>
                 
                 <div className="relative">
@@ -928,7 +940,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                               )}
                             </div>
                           ) : (
-                            <span className="text-zinc-400 text-xs">Áp dụng chung (Không gắn chiến dịch cụ thể)</span>
+                            <span className="text-zinc-400 text-xs">Áp dụng chung (Không gắn chương trình cụ thể)</span>
                           )}
                           <ChevronDown className="w-4 h-4 text-zinc-500 shrink-0 ml-2" />
                         </button>
@@ -940,7 +952,7 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                               onClick={() => setIsCampDropdownOpen(false)}
                             />
                             <div className="absolute left-0 right-0 mt-1.5 bg-zinc-950 border border-zinc-800 rounded-xl shadow-2xl z-20 max-h-96 overflow-y-auto p-2.5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-100">
-                              <div
+                               <div
                                 onClick={() => {
                                   setThFormCampaignId('');
                                   setIsCampDropdownOpen(false);
@@ -951,8 +963,15 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                                     : 'text-zinc-300 hover:bg-zinc-900 border-transparent'
                                 }`}
                               >
-                                <span className="text-xs font-semibold">Áp dụng chung</span>
-                                <span className="text-[9px] text-zinc-500 mt-0.5">Không gắn với bất kỳ chiến dịch cụ thể nào</span>
+                                <div className="flex items-center justify-between w-full">
+                                  <span className="text-xs font-semibold">Áp dụng chung</span>
+                                  {thresholds.filter(t => !t.campaign_id).length > 0 && (
+                                    <span className="text-[10px] bg-zinc-850 text-zinc-400 px-1.5 py-0.5 rounded-md font-mono shrink-0">
+                                      {thresholds.filter(t => !t.campaign_id).length} mốc
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[9px] text-zinc-500 mt-0.5">Không gắn với bất kỳ chương trình cụ thể nào</span>
                               </div>
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -965,6 +984,9 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                                   .map(c => {
                                     const isSelected = String(c.id) === String(thFormCampaignId);
                                     const isExpired = isCampaignExpired(c.valid_to);
+                                    // Count thresholds created for this specific campaign
+                                    const createdCount = thresholds.filter(t => t.campaign_id === c.id).length;
+                                    
                                     return (
                                       <div
                                         key={c.id}
@@ -980,15 +1002,22 @@ export function ThresholdTab({ activeTab, hideExpired }: { activeTab?: 'policies
                                               : 'text-zinc-300 hover:bg-zinc-900/60 border-transparent'
                                         }`}
                                       >
-                                        <div className="flex items-center gap-1.5">
-                                          {isExpired && (
-                                            <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-zinc-900 text-zinc-500 border border-zinc-800 shrink-0">
-                                              HẾT HẠN
+                                        <div className="flex items-center justify-between gap-1.5 w-full">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            {isExpired && (
+                                              <span className="px-1 py-0.2 rounded text-[8px] font-bold bg-zinc-900 text-zinc-500 border border-zinc-800 shrink-0">
+                                                HẾT HẠN
+                                              </span>
+                                            )}
+                                            <span className={`text-xs font-semibold truncate ${isExpired ? 'line-through text-zinc-500' : 'text-zinc-200'}`}>
+                                              {c.name} {c.carrier ? `(${c.carrier})` : ''}
+                                            </span>
+                                          </div>
+                                          {createdCount > 0 && (
+                                            <span className="text-[10px] bg-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded-md font-mono shrink-0">
+                                              {createdCount} mốc
                                             </span>
                                           )}
-                                          <span className={`text-xs font-semibold truncate ${isExpired ? 'line-through text-zinc-500' : 'text-zinc-200'}`}>
-                                            {c.name} {c.carrier ? `(${c.carrier})` : ''}
-                                          </span>
                                         </div>
                                         {(c.valid_from || c.valid_to) && (
                                           <span className="text-[9px] text-zinc-500 mt-0.5 font-mono">

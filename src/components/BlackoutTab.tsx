@@ -10,7 +10,7 @@ import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { CustomDateRangePicker } from './CustomDateRangePicker';
 import { CustomButton } from './CustomButton';
 
-export function BlackoutTab() {
+export function BlackoutTab({ isSelected }: { isSelected?: boolean }) {
   const [periods, setPeriods] = useState<CampaignBlackoutPeriod[]>([]);
   const [campaignsMap, setCampaignsMap] = useState<Record<number, Campaign>>({});
   const [loading, setLoading] = useState<boolean>(true);
@@ -98,13 +98,16 @@ export function BlackoutTab() {
 
   useEffect(() => {
     const handleSearch = (e: Event) => {
+      if (isSelected === false) return;
       const query = (e as CustomEvent).detail;
       setSearchQuery(query);
     };
     const handleRefresh = () => {
+      if (isSelected === false) return;
       fetchData(true);
     };
     const handleAdd = () => {
+      if (isSelected === false) return;
       openAddModal();
     };
 
@@ -117,7 +120,7 @@ export function BlackoutTab() {
       window.removeEventListener('skyjet-refresh', handleRefresh);
       window.removeEventListener('skyjet-add', handleAdd);
     };
-  }, []);
+  }, [isSelected]);
 
   const handleSort = (field: keyof CampaignBlackoutPeriod) => {
     if (sortField === field) {
@@ -315,7 +318,7 @@ export function BlackoutTab() {
             </div>
             <h3 className="text-zinc-200 font-semibold text-base">Không tìm thấy giai đoạn tạm dừng nào</h3>
             <p className="text-xs text-zinc-500 leading-relaxed">
-              {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo giai đoạn tạm dừng chiến dịch đầu tiên của bạn!"}
+              {searchQuery ? "Không có bản ghi nào khớp bộ lọc của bạn." : "Khởi tạo giai đoạn tạm dừng chương trình đầu tiên của bạn!"}
             </p>
 
           </div>
@@ -332,11 +335,11 @@ export function BlackoutTab() {
                   </th>
                   <th onClick={() => handleSort('campaign_id')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
-                      ID Chiến dịch
+                      ID Chương trình
                       <ArrowUpDown className="w-3 h-3 text-slate-400" />
                     </div>
                   </th>
-                  <th>Chi tiết Chiến dịch</th>
+                  <th>Chi tiết</th>
                   <th onClick={() => handleSort('start_date')} className="cursor-pointer select-none">
                     <div className="flex items-center gap-1">
                       Ngày Bắt đầu
@@ -374,7 +377,7 @@ export function BlackoutTab() {
                           <div className="flex flex-col gap-0.5">
                             <span className="font-semibold text-slate-800">{linkedCampaign.name}</span>
                             {linkedCampaign.carrier && (
-                              <span className="text-xs text-slate-500">Hãng bay: {linkedCampaign.carrier}</span>
+                              <span className="text-xs text-slate-500">Hãng: {linkedCampaign.carrier}</span>
                             )}
                           </div>
                         ) : (
@@ -435,7 +438,7 @@ export function BlackoutTab() {
 
               {/* Campaign FK Dropdown */}
               <div>
-                <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chiến dịch áp dụng *</label>
+                <label className="block text-xs font-bold text-zinc-400 mb-1.5">Chọn Chương trình áp dụng *</label>
                 <RelationSelector
                   selectedCampaignId={formCampaignId}
                   onChange={(campaignId) => setFormCampaignId(campaignId)}

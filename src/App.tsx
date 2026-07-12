@@ -34,14 +34,14 @@ const MemoizedAirportTab = React.memo(AirportTab);
 const TAB_ITEMS = [
   { 
     id: 'campaign' as TabId, 
-    label: 'Chiến dịch', 
-    sublabel: 'Campaign', 
+    label: 'Chương trình', 
+    sublabel: 'Program', 
     icon: FileSpreadsheet,
     component: MemoizedCampaignTab 
   },
   { 
     id: 'details' as TabId, 
-    label: 'Chi tiết chiến dịch', 
+    label: 'Chi tiết', 
     sublabel: 'Details', 
     icon: Settings2,
     component: MemoizedDetailsTab 
@@ -85,7 +85,10 @@ export default function App() {
   // Track visited tabs to implement lazy mounting. This reduces initial load and prevents parallel API spams
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set(['campaign']));
 
+  const isPopupMode = new URLSearchParams(window.location.search).get('popup') === 'true';
+
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    if (isPopupMode) return false;
     const saved = localStorage.getItem('theme');
     if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -115,9 +118,30 @@ export default function App() {
   useEffect(() => {
     setSearchQuery('');
     setShowSearch(false);
+    if (activeTab === 'threshold') {
+      setActiveThresholdSubTab('thresholds');
+    } else if (activeTab === 'policy') {
+      setActiveThresholdSubTab('policies');
+    }
   }, [activeTab]);
 
+  // Synchronize threshold subtab selection
   useEffect(() => {
+    const handleSubtabChange = (e: Event) => {
+      const subtab = (e as CustomEvent).detail as 'policies' | 'thresholds';
+      setActiveThresholdSubTab(subtab);
+    };
+    window.addEventListener('skyjet-threshold-subtab-change', handleSubtabChange);
+    return () => {
+      window.removeEventListener('skyjet-threshold-subtab-change', handleSubtabChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPopupMode) {
+      document.documentElement.classList.remove('dark');
+      return;
+    }
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -125,7 +149,7 @@ export default function App() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
-  }, [isDarkMode]);
+  }, [isDarkMode, isPopupMode]);
 
   // Add the newly selected tab to the visited set
   useEffect(() => {
@@ -149,8 +173,6 @@ export default function App() {
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
   }, [showSettings]);
-
-  const isPopupMode = new URLSearchParams(window.location.search).get('popup') === 'true';
 
   if (isPopupMode) {
     return (
@@ -234,7 +256,7 @@ export default function App() {
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('skyjet-add', { detail: 'matrix' }))}
                   className="w-10 h-10 rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] flex items-center justify-center cursor-pointer transition-colors text-slate-650 hover:text-slate-950 dark:text-slate-350 dark:hover:text-slate-50"
-                  title="Thêm Ma trận"
+                  title="Thêm bảng Chi tiết"
                 >
                   <Layers size={16} className="text-indigo-500" />
                 </button>
@@ -258,9 +280,9 @@ export default function App() {
             ) : (
               <button
                 onClick={() => window.dispatchEvent(new CustomEvent('skyjet-add'))}
-                className="w-10 h-10 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center cursor-pointer transition-all shadow-sm shadow-indigo-600/10"
+                className="w-10 h-10 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center cursor-pointer transition-colors"
                 title={
-                  activeTab === 'campaign' ? 'Thêm Chiến dịch' :
+                  activeTab === 'campaign' ? 'Thêm Chương trình' :
                   activeTab === 'blackout' ? 'Thêm Thời gian dừng' :
                   activeTab === 'airport' ? 'Thêm Sân bay' :
                   'Thêm mới'
@@ -274,7 +296,7 @@ export default function App() {
             <div id="settings-menu-container" className="relative z-50">
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="w-10 h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border-light)] shadow-sm hover:bg-[var(--bg-card-hover)] flex items-center justify-center cursor-pointer transition-colors text-slate-650 hover:text-slate-950 dark:text-slate-350 dark:hover:text-slate-50"
+                className="w-10 h-10 rounded-xl bg-[var(--bg-card)] border border-[var(--border-light)] shadow-sm hover:bg-[var(--bg-card-hover)] flex items-center justify-center cursor-pointer transition-colors text-slate-655 hover:text-slate-955 dark:text-slate-350 dark:hover:text-slate-550"
                 title="Thiết lập"
               >
                 <Settings2 size={18} className={`${showSettings ? 'rotate-45' : ''} transition-transform duration-200`} />
@@ -282,7 +304,7 @@ export default function App() {
 
               {showSettings && (
                 <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-xl border border-[var(--border-light)] bg-[var(--bg-card)] p-3 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none space-y-3 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                  {/* Ẩn chiến dịch / ngưỡng hết hạn setting */}
+                  {/* Ẩn chương trình / ngưỡng hết hạn setting */}
                   <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-950/20 hover:bg-zinc-950/30 transition-colors">
                     <span 
                       className="text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none"
@@ -333,10 +355,10 @@ export default function App() {
               type="text"
               autoFocus
               placeholder={
-                activeTab === 'campaign' ? "Tìm tên chiến dịch, hãng bay, ID..." :
-                activeTab === 'details' ? "Tìm hạng vé, chiến dịch, tỷ lệ..." :
-                activeTab === 'threshold' ? (activeThresholdSubTab === 'policies' ? "Tìm chính sách..." : "Tìm ngưỡng, chiến dịch...") :
-                activeTab === 'blackout' ? "Tìm tên chiến dịch, phân loại, ID..." :
+                activeTab === 'campaign' ? "Tìm tên chương trình, hãng, ID..." :
+                activeTab === 'details' ? "Tìm hạng vé, chương trình, tỷ lệ..." :
+                activeTab === 'threshold' ? (activeThresholdSubTab === 'policies' ? "Tìm chính sách..." : "Tìm ngưỡng, chương trình...") :
+                activeTab === 'blackout' ? "Tìm tên chương trình, phân loại, ID..." :
                 activeTab === 'policy' ? "Tìm chính sách..." :
                 activeTab === 'airport' ? "Tìm IATA, thành phố, tên, thẻ..." :
                 "Tìm kiếm..."
@@ -361,7 +383,7 @@ export default function App() {
                 key={tab.id} 
                 className={`animate-in fade-in duration-200 ${activeTab === tab.id ? 'block' : 'hidden'}`}
               >
-                {hasBeenVisited && <TabComponent hideExpired={hideExpired} />}
+                {hasBeenVisited && <TabComponent hideExpired={hideExpired} isSelected={activeTab === tab.id} />}
               </div>
             );
           })}

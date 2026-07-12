@@ -10,7 +10,7 @@ const fieldLabels: Record<string, { icon: string, label: string, colorClass: str
   productType: { icon: '📦', label: 'Sản phẩm', colorClass: 'bg-teal-950/40 text-teal-400 border-teal-900/30' },
   salesChannel: { icon: '🌐', label: 'Kênh bán', colorClass: 'bg-sky-950/40 text-sky-400 border-sky-900/30' },
   itinerary: { icon: '📍', label: 'Hành trình', colorClass: 'bg-rose-950/40 text-rose-450 border-rose-900/30' },
-  carrier: { icon: '✈️', label: 'Hãng bay', colorClass: 'bg-cyan-950/40 text-cyan-400 border-cyan-800/30' },
+  carrier: { icon: '✈️', label: 'Hãng', colorClass: 'bg-cyan-950/40 text-cyan-400 border-cyan-800/30' },
   ticketClass: { icon: '💺', label: 'Hạng đặt chỗ', colorClass: 'bg-purple-950/40 text-purple-400 border-purple-900/30' },
   supplier: { icon: '🏢', label: 'Nhà cung cấp', colorClass: 'bg-pink-950/40 text-pink-400 border-pink-900/30' },
   issueDate: { icon: '📅', label: 'Ngày xuất', colorClass: 'bg-slate-850 text-slate-350 border-slate-800' },
@@ -512,7 +512,7 @@ export default function Simulator() {
                         <span className="text-slate-200 font-semibold text-right max-w-[200px] truncate">{modalData.tickets[0].notes || "—"}</span>
                       </div>
                       <div className="flex justify-between items-center py-1 border-b border-dashed border-slate-800/60">
-                        <span className="text-slate-400 font-medium">Hãng bay</span>
+                        <span className="text-slate-400 font-medium">Hãng</span>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                           modalData.tickets[0].carrier === 'VN' ? 'bg-cyan-950/50 text-sky-400 border border-cyan-800/30' : 'bg-rose-950/50 text-rose-450 border border-rose-800/30'
                         }`}>

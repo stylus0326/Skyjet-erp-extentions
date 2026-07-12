@@ -88,12 +88,12 @@ export function RelationSelector({ selectedCampaignId, onChange, id, hideExpired
         >
           <span className={selectedCampaign ? "text-zinc-100" : "text-zinc-500"}>
             {loading 
-              ? "Đang tải danh sách chiến dịch..." 
+              ? "Đang tải danh sách chương trình..." 
               : filteredCampaigns.length === 0 
-                ? "Không có chiến dịch nào khả dụng" 
+                ? "Không có chương trình nào khả dụng" 
                 : selectedCampaign 
                   ? `#${selectedCampaign.id} - ${isCampaignExpired(selectedCampaign.valid_to) ? '[HẾT HẠN] ' : ''}${selectedCampaign.name} (${selectedCampaign.carrier})` 
-                  : "-- Chọn một Chiến dịch (Select Campaign) --"
+                  : "-- Chọn một Chương trình (Select Program) --"
             }
           </span>
           <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
@@ -144,7 +144,7 @@ export function RelationSelector({ selectedCampaignId, onChange, id, hideExpired
       {!loading && filteredCampaigns.length === 0 && (
         <p className="mt-1.5 text-xs text-amber-400 bg-amber-950/20 p-2 rounded-md border border-amber-900/40 flex items-center gap-1.5">
           <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-          Bạn cần khởi tạo ít nhất một chiến dịch trước khi tạo bản ghi này.
+          Bạn cần khởi tạo ít nhất một chương trình trước khi tạo bản ghi này.
         </p>
       )}
     </div>

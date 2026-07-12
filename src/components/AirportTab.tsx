@@ -9,7 +9,7 @@ import {
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { CustomButton } from './CustomButton';
 
-export function AirportTab() {
+export function AirportTab({ isSelected }: { isSelected?: boolean }) {
   const [airports, setAirports] = useState<Airport[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,13 +78,16 @@ export function AirportTab() {
 
   useEffect(() => {
     const handleSearch = (e: Event) => {
+      if (isSelected === false) return;
       const query = (e as CustomEvent).detail;
       setSearchQuery(query);
     };
     const handleRefresh = () => {
+      if (isSelected === false) return;
       fetchData(true);
     };
     const handleAdd = () => {
+      if (isSelected === false) return;
       openAddModal();
     };
 
@@ -97,7 +100,7 @@ export function AirportTab() {
       window.removeEventListener('skyjet-refresh', handleRefresh);
       window.removeEventListener('skyjet-add', handleAdd);
     };
-  }, []);
+  }, [isSelected]);
 
   const handleSort = (field: keyof Airport) => {
     if (sortField === field) {

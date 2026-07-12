@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Skyjet ERP Helper",
-  "version": "26.709.6",
+  "version": "26.712.27",
   "description": "Biến Mã đơn hàng trong bảng công nợ Skyjet ERP thành nút tìm kiếm nhanh chạy ngầm.",
   "permissions": [
     "activeTab",
