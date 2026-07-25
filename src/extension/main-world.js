@@ -1,34 +1,6 @@
 // main-world.js
 (function() {
-  const currentPath = window.location.pathname.toLowerCase();
-
-  // 1. Xử lý xóa/tự động xác nhận popup trên trang RegisterMember khi bấm Đăng ký
-  if (currentPath.includes('/kythuatarea/kythuat/registermember') || currentPath.includes('/registermember')) {
-    console.log('[Skyjet Main World] Auto-suppressing popups on RegisterMember page.');
-    
-    // Tự động bỏ qua confirm popup
-    window.confirm = function(msg) {
-      console.log('[Skyjet Helper] Suppressed confirm popup:', msg);
-      return true;
-    };
-
-    // Tự động bỏ qua alert popup
-    window.alert = function(msg) {
-      console.log('[Skyjet Helper] Suppressed alert popup:', msg);
-      return true;
-    };
-
-    // Chặn SweetAlert nếu có
-    if (typeof window.swal === 'function') {
-      window.swal = function(...args) {
-        console.log('[Skyjet Helper] Suppressed swal popup:', args);
-        return Promise.resolve(true);
-      };
-    }
-  }
-
-  // 2. Xử lý gán ngày cho InvoiceRequest
-  if (!currentPath.includes('/invoicerequest/create')) return;
+  if (!window.location.pathname.toLowerCase().includes('/invoicerequest/create')) return;
 
   const urlParams = new URLSearchParams(window.location.search);
   const fromDateVal = urlParams.get('skyjetFromDate');
@@ -81,4 +53,3 @@
 
   setDate();
 })();
-
