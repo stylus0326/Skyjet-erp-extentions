@@ -43,6 +43,7 @@ const observer = new MutationObserver((mutations) => {
       if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
       if (typeof handleSplitDescription === 'function') handleSplitDescription();
       if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
+      if (typeof handleRegisterMemberPopup === 'function') handleRegisterMemberPopup();
     }, 150);
   }
 });
@@ -132,6 +133,7 @@ function initSkyjetHelper() {
   if (typeof handleSplitDescription === 'function') handleSplitDescription();
   if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
   if (typeof handleInvoiceRequestCreatePage === 'function') handleInvoiceRequestCreatePage();
+  if (typeof handleRegisterMemberPopup === 'function') handleRegisterMemberPopup();
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     applyVisibilitySettings();
@@ -1214,3 +1216,70 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     }
   });
 }
+
+/**
+ * Tự động xóa/ẩn popup trên trang RegisterMember khi bấm Đăng ký
+ */
+function handleRegisterMemberPopup() {
+  const path = window.location.pathname.toLowerCase();
+  if (!path.includes('/kythuatarea/kythuat/registermember') && !path.includes('/registermember')) {
+    return;
+  }
+
+  // Inject CSS ẩn ngay lập tức khung modal/popup nếu có xuất hiện trên trang này
+  if (!document.getElementById('skyjet-register-popup-style')) {
+    const style = document.createElement('style');
+    style.id = 'skyjet-register-popup-style';
+    style.textContent = `
+      body.modal-open { overflow: auto !important; }
+      .skyjet-suppress-popup,
+      .modal-backdrop,
+      div.modal[role="dialog"].in,
+      div.modal.show {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  // Gắn handler lắng nghe sự kiện click trên các nút Đăng ký / Register
+  if (!window.skyjetRegisterListenerAttached) {
+    window.skyjetRegisterListenerAttached = true;
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button, input[type="submit"], input[type="button"], a.btn, a');
+      if (!btn) return;
+      const text = (btn.innerText || btn.value || '').trim().toLowerCase();
+      const isRegisterBtn = text.includes('đăng ký') || 
+                            text.includes('đăng ky') || 
+                            text.includes('register') || 
+                            (btn.id && btn.id.toLowerCase().includes('register')) || 
+                            (btn.name && btn.name.toLowerCase().includes('register'));
+
+      if (isRegisterBtn) {
+        console.log('[Skyjet Helper] Detected Register click on RegisterMember page. Auto-clearing popups/modals.');
+
+        const clearModals = () => {
+          const modalBackdrops = document.querySelectorAll('.modal-backdrop, .swal2-container, .swal-overlay, div[class*="popup"], div[class*="backdrop"]');
+          modalBackdrops.forEach(el => el.remove());
+
+          const modals = document.querySelectorAll('.modal.show, .modal.in, div[role="dialog"], .swal-modal, .swal2-modal');
+          modals.forEach(modal => {
+            modal.classList.remove('show', 'in');
+            modal.style.display = 'none';
+          });
+          document.body.classList.remove('modal-open');
+        };
+
+        // Clear ngay lập tức và nhiều lần sau click
+        clearModals();
+        setTimeout(clearModals, 50);
+        setTimeout(clearModals, 150);
+        setTimeout(clearModals, 300);
+        setTimeout(clearModals, 600);
+      }
+    }, true);
+  }
+}
+

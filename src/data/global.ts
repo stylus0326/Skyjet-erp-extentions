@@ -50,6 +50,7 @@ const observer = new MutationObserver((mutations) => {
       if (typeof handleSearchTransactionCheck === 'function') handleSearchTransactionCheck();
       if (typeof handleSplitDescription === 'function') handleSplitDescription();
       if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
+      if (typeof handleRegisterMemberPopup === 'function') handleRegisterMemberPopup();
     }, 150);
   }
 });
@@ -139,7 +140,7 @@ function initSkyjetHelper() {
   if (typeof handleSplitDescription === 'function') handleSplitDescription();
   if (typeof injectFundLimitInfo === 'function') injectFundLimitInfo();
   if (typeof handleInvoiceRequestCreatePage === 'function') handleInvoiceRequestCreatePage();
-  if (typeof handleAgencyContractPage === 'function') handleAgencyContractPage();
+  if (typeof handleRegisterMemberPopup === 'function') handleRegisterMemberPopup();
   
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
     applyVisibilitySettings();
@@ -1223,131 +1224,70 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
   });
 }
 
-// --- Bổ sung tự động click "Tạo mới" và điền popup Hợp đồng ---
-function handleAgencyContractPage() {
-  if (!window.location.href.includes('/KinhDoanhArea/AgencyContract/AgencyContracts')) return;
+/**
+ * Tự động xóa/ẩn popup trên trang RegisterMember khi bấm Đăng ký
+ */
+function handleRegisterMemberPopup() {
+  const path = window.location.pathname.toLowerCase();
+  if (!path.includes('/kythuatarea/kythuat/registermember') && !path.includes('/registermember')) {
+    return;
+  }
 
-  function fill(nameOrId, value) {
-    var el = document.getElementById(nameOrId) || document.querySelector('[name="' + nameOrId + '"]');
-    if (el) {
-      el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-      if (typeof $ !== 'undefined' && $(el).data && $(el).data('select2')) {
-        $(el).val(value).trigger('change');
+  // Inject CSS ẩn ngay lập tức khung modal/popup nếu có xuất hiện trên trang này
+  if (!document.getElementById('skyjet-register-popup-style')) {
+    const style = document.createElement('style');
+    style.id = 'skyjet-register-popup-style';
+    style.textContent = \`
+      body.modal-open { overflow: auto !important; }
+      .skyjet-suppress-popup,
+      .modal-backdrop,
+      div.modal[role="dialog"].in,
+      div.modal.show {
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
-    }
+    \`;
+    (document.head || document.documentElement).appendChild(style);
   }
 
-  function fillAny(namesOrIds, value) {
-    for (var i = 0; i < namesOrIds.length; i++) {
-      var key = namesOrIds[i];
-      var el = document.getElementById(key) || document.querySelector('[name="' + key + '"]');
-      if (el) {
-        fill(key, value);
-        break;
+  // Gắn handler lắng nghe sự kiện click trên các nút Đăng ký / Register
+  if (!window.skyjetRegisterListenerAttached) {
+    window.skyjetRegisterListenerAttached = true;
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button, input[type="submit"], input[type="button"], a.btn, a');
+      if (!btn) return;
+      const text = (btn.innerText || btn.value || '').trim().toLowerCase();
+      const isRegisterBtn = text.includes('đăng ký') || 
+                            text.includes('đăng ky') || 
+                            text.includes('register') || 
+                            (btn.id && btn.id.toLowerCase().includes('register')) || 
+                            (btn.name && btn.name.toLowerCase().includes('register'));
+
+      if (isRegisterBtn) {
+        console.log('[Skyjet Helper] Detected Register click on RegisterMember page. Auto-clearing popups/modals.');
+
+        const clearModals = () => {
+          const modalBackdrops = document.querySelectorAll('.modal-backdrop, .swal2-container, .swal-overlay, div[class*="popup"], div[class*="backdrop"]');
+          modalBackdrops.forEach(el => el.remove());
+
+          const modals = document.querySelectorAll('.modal.show, .modal.in, div[role="dialog"], .swal-modal, .swal2-modal');
+          modals.forEach(modal => {
+            modal.classList.remove('show', 'in');
+            modal.style.display = 'none';
+          });
+          document.body.classList.remove('modal-open');
+        };
+
+        // Clear ngay lập tức và nhiều lần sau click
+        clearModals();
+        setTimeout(clearModals, 50);
+        setTimeout(clearModals, 150);
+        setTimeout(clearModals, 300);
+        setTimeout(clearModals, 600);
       }
-    }
+    }, true);
   }
-
-  function matchOptionByText(selectNameOrId, searchText) {
-    var el = document.getElementById(selectNameOrId) || document.querySelector('[name="' + selectNameOrId + '"]');
-    if (!el || !el.options) return null;
-    var searchLower = (searchText || '').toString().trim().toLowerCase();
-    for (var i = 0; i < el.options.length; i++) {
-      var optText = (el.options[i].text || el.options[i].textContent || '').trim().toLowerCase();
-      if (optText.includes(searchLower)) {
-        return el.options[i].value;
-      }
-    }
-    return null;
-  }
-
-  function checkAndFillContract() {
-    if (checkAndFillContract.done) return;
-    
-    // 1. Kiểm tra tham số autofill trên URL
-    var urlParams = new URLSearchParams(window.location.search);
-    var autofillData = urlParams.get('autofill');
-    if (!autofillData) return;
-
-    // 2. Tìm và tự động click nút "Tạo mới"
-    var createBtn = Array.from(document.querySelectorAll('a, button')).find(
-      el => el.textContent.trim() === 'Tạo mới'
-    );
-    
-    if (createBtn) {
-      console.log('[skyjet-autofill]', 'Đang tự động click "Tạo mới" để mở popup...');
-      createBtn.click();
-      
-      // 3. Đợi popup (form) render xong thì tiến hành điền
-      var fillInterval = setInterval(function () {
-        var contractForm = document.getElementById('contractForm');
-        if (contractForm) {
-          clearInterval(fillInterval);
-          checkAndFillContract.done = true;
-          
-          // Giải mã payload
-          var data;
-          try {
-            data = JSON.parse(decodeURIComponent(atob(autofillData)));
-          } catch (e) {
-            console.error('[skyjet-autofill]', 'Lỗi giải mã:', e);
-            return;
-          }
-
-          console.log('[skyjet-autofill]', 'Đã mở popup, bắt đầu điền form hợp đồng...');
-
-          // Điền các trường văn bản
-          fillAny(['representativeB'], data.fullName || '');
-          fillAny(['positionB'], 'CHỦ PHÒNG VÉ');
-          fillAny(['address'], data.residence || '');
-          fillAny(['phone'], data.phone || '');
-          fillAny(['email'], data.email || '');
-          fillAny(['taxCode'], data.taxCode || data.mst || '');
-
-          // Chọn các giá trị dropdown mặc định
-          fillAny(['contractType'], 'AGENT'); // Hợp đồng đại lý
-          fillAny(['signMethod'], 'DIGITAL'); // Ký điện tử
-          fillAny(['status'], 'DRAFTING');    // Trạng thái: Đang soạn
-
-          // Khớp mã đại lý (Bên B) trong dropdown Select2
-          if (data.agencyCode) {
-            var partyBValue = matchOptionByText('partyB', data.agencyCode);
-            if (partyBValue) {
-              fill('partyB', partyBValue);
-            }
-          }
-
-          // Khớp Nhân viên kinh doanh (NVKD)
-          if (data.salespersonName) {
-            var nvCode = matchOptionByText('salesRepresentative', data.salespersonName);
-            if (nvCode) {
-              fill('salesRepresentative', nvCode);
-            }
-          }
-
-          // Dọn dẹp URL trên trình duyệt
-          try {
-            var newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname + '?&i=18';
-            window.history.pushState({ path: newUrl }, '', newUrl);
-          } catch (_e) {}
-
-          alert('✅ Điền thông tin tạo Hợp đồng thành công!\\nVui lòng kiểm tra lại trước khi bấm Lưu.');
-        }
-      }, 300);
-    }
-  }
-
-  // Chạy kiểm tra định kỳ cho tới khi hoàn tất
-  checkAndFillContract();
-  var contractInterval = setInterval(function () {
-    if (checkAndFillContract.done) {
-      clearInterval(contractInterval);
-    } else {
-      checkAndFillContract();
-    }
-  }, 500);
 }
 
 `

@@ -55,6 +55,8 @@ export const manifestFile: ExtensionFile = {
     },
     {
       "matches": [
+        "https://erp.skyjet.vn/*",
+        "http://erp.skyjet.vn/*",
         "https://agent.skyjet.vn/*",
         "http://agent.skyjet.vn/*",
         "https://partner.skyjet.vn/*",
