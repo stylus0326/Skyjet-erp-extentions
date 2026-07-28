@@ -3664,19 +3664,19 @@ export function CalculatorTab() {
                     </div>
                   )}
 
-                  {((inspectorResult.appliedCampaigns && inspectorResult.appliedCampaigns.length > 0) || (inspectorResult.skippedSegments && inspectorResult.skippedSegments.length > 0)) ? (
+                  {(inspectorResult.appliedCampaigns && inspectorResult.appliedCampaigns.length > 0) ? (
                     <div className="bg-zinc-900/30 rounded border border-zinc-900 p-2.5 space-y-2.5">
                       <div className="border-b border-zinc-900 pb-1.5 flex justify-between items-center">
                         <span className="text-[9px] uppercase font-bold text-amber-500 tracking-wider">
                           Chi tiết các chính sách áp dụng:
                         </span>
                         <span className="text-[9px] font-mono text-zinc-400">
-                          Áp dụng: {inspectorResult.appliedCampaigns?.length || 0} | Bỏ qua: {inspectorResult.skippedSegments?.length || 0}
+                          Áp dụng: {inspectorResult.appliedCampaigns.length}
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {inspectorResult.appliedCampaigns && inspectorResult.appliedCampaigns.map((camp, idx) => {
+                        {inspectorResult.appliedCampaigns.map((camp, idx) => {
                           const isPenalized = camp.multiplier !== undefined && camp.multiplier < 1.0;
                           return (
                             <div key={`camp-${idx}`} className="bg-zinc-950/40 p-2.5 rounded border border-zinc-800/30 text-[11px] space-y-1.5 flex flex-col h-full">
@@ -3829,157 +3829,6 @@ export function CalculatorTab() {
                             </div>
                           );
                         })}
-
-                        {inspectorResult.skippedSegments && inspectorResult.skippedSegments.map((seg, idx) => (
-                          <div key={`seg-${idx}`} className="bg-rose-50 border border-rose-200 rounded-lg p-3 space-y-2.5 text-zinc-900 flex flex-col h-full">
-                            <div className="flex justify-between items-center text-[11px]">
-                              <div className="flex items-center space-x-1.5">
-                                <span className="px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-rose-100 text-rose-800 border border-rose-200">
-                                  ✗ KHÔNG CHIẾT KHẤU
-                                </span>
-                                <span className="text-[10px] font-semibold text-zinc-500 text-left">
-                                  {seg.segmentDirection} ({seg.segmentFromTo}) - Hạng {seg.segmentClass}:
-                                </span>
-                              </div>
-                              <span className="font-mono text-base font-black text-rose-700">0</span>
-                            </div>
-
-                            <hr className="border-t border-rose-200/60" />
-
-                            <div className="bg-white border border-rose-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold text-rose-900 space-y-1">
-                              <div className="text-left">{seg.reason}</div>
-                              {seg.campaignName && (
-                                <div className="text-zinc-450 text-[9px] font-normal italic mt-1 text-left">
-                                  (Đối soát theo chương trình: {seg.campaignName})
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Bảng đối chiếu quy định chương trình dạng ma trận */}
-                            {(() => {
-                              const campDetails = details.filter(d => d.campaign_id === seg.campaignId);
-                              if (campDetails.length === 0) return null;
-
-                              const columnOrder = [
-                                'Âu, Úc, Mỹ',
-                                'Đông Bắc Á, Nam Á và Trung Đông - Châu Phi',
-                                'Đông Nam Á và Đông Dương'
-                              ];
-                              const uniqueTagsGrouped = Array.from(
-                                new Set((campDetails.flatMap(d => d.groups_tag || []) as string[]).map(mapTagToGroupCol))
-                              ).filter(Boolean).sort((a, b) => {
-                                const idxA = columnOrder.indexOf(a);
-                                const idxB = columnOrder.indexOf(b);
-                                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                                if (idxA !== -1) return -1;
-                                if (idxB !== -1) return 1;
-                                return a.localeCompare(b);
-                              });
-                              const cols = uniqueTagsGrouped.length > 0 ? uniqueTagsGrouped : ['Mặc định'];
-
-                              const getRowMaxVal = (rowKey: string): number => {
-                                const rowDetails = campDetails.filter(d => {
-                                  const dKey = !d.booking_class || d.booking_class.length === 0 ? 'Tất cả' : [...d.booking_class].sort().join('/');
-                                  return dKey === rowKey;
-                                });
-                                let maxVal = 0;
-                                rowDetails.forEach(d => {
-                                  if (d.amount !== null && d.amount !== undefined) {
-                                    if (d.amount > maxVal) maxVal = d.amount;
-                                  } else if (d.discount_percentage !== undefined && d.discount_percentage !== null) {
-                                    if (d.discount_percentage > maxVal) maxVal = d.discount_percentage;
-                                  }
-                                });
-                                return maxVal;
-                              };
-
-                              const uniqueRows = Array.from(
-                                new Set(
-                                  campDetails.map(d => {
-                                    if (!d.booking_class || d.booking_class.length === 0) return 'Tất cả';
-                                    return [...d.booking_class].sort().join('/');
-                                  })
-                                )
-                              ).sort((a, b) => {
-                                const valA = getRowMaxVal(a as string);
-                                const valB = getRowMaxVal(b as string);
-                                if (valA !== valB) return valB - valA;
-                                if (a === 'Tất cả') return 1;
-                                if (b === 'Tất cả') return -1;
-                                return (a as string).localeCompare(b as string);
-                              }) as string[];
-
-                              return (
-                                <div className="mt-2.5 overflow-x-auto rounded border border-rose-200 bg-white text-[9px] shadow-inner flex-grow flex flex-col">
-                                  <div className="bg-rose-100/50 border-b border-rose-200 px-2 py-1 text-[8px] font-bold text-black uppercase tracking-wider text-left">
-                                    Bản đồ ma trận chiết khấu:
-                                  </div>
-                                  <table className="w-full border-collapse text-center table-fixed flex-grow h-full text-black">
-                                    <thead>
-                                      <tr className="bg-rose-50/50 border-b border-rose-200 text-[8px] font-bold text-black uppercase">
-                                        <th className="py-1 px-1 border-r border-rose-200 text-center w-24 text-black font-extrabold">Hạng</th>
-                                        {cols.map((col, cIdx) => (
-                                          <th key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center font-black text-black">
-                                            {col}
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {uniqueRows.map((rowKey, rIdx) => {
-                                        const isRowMatch = rowKey !== 'Tất cả' && rowKey.split('/').some(c => c.toUpperCase() === seg.segmentClass.toUpperCase());
-                                        const rowBgClass = isRowMatch ? 'bg-amber-50' : '';
-
-                                        return (
-                                          <tr key={rIdx} className={`border-b border-rose-100 last:border-b-0 ${rowBgClass}`}>
-                                            <td className="py-1 px-1 border-r border-rose-200 text-black font-extrabold text-center break-all whitespace-normal">
-                                              {rowKey}
-                                            </td>
-                                            {cols.map((colTag, cIdx) => {
-                                              const cellDetails = campDetails.filter(d => {
-                                                const dKey = !d.booking_class || d.booking_class.length === 0 ? 'Tất cả' : [...d.booking_class].sort().join('/');
-                                                const matchesRow = dKey === rowKey;
-                                                if (uniqueTagsGrouped.length === 0) return matchesRow;
-                                                const matchesCol = (d.groups_tag || []).some(t => mapTagToGroupCol(t) === colTag);
-                                                return matchesRow && matchesCol;
-                                              });
-
-                                              const hasData = cellDetails.length > 0;
-
-                                              if (hasData) {
-                                                const detail = cellDetails[0];
-                                                const amountStr = detail.amount !== null && detail.amount !== undefined ? `${detail.amount.toLocaleString()}` : '';
-                                                const pctStr = detail.discount_percentage !== undefined && detail.discount_percentage !== 0 ? `${detail.discount_percentage}%` : '';
-                                                const displayVal = amountStr || pctStr;
-
-                                                return (
-                                                  <td key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center font-mono text-black font-bold">
-                                                    {displayVal}
-                                                    {pctStr && (
-                                                      <span className="text-[7px] text-zinc-600 font-sans block leading-none mt-0.5">
-                                                        ({detail.discount_base})
-                                                      </span>
-                                                    )}
-                                                  </td>
-                                                );
-                                              } else {
-                                                return (
-                                                  <td key={cIdx} className="py-1 px-1 border-r border-rose-200 text-center text-black font-bold">
-                                                    —
-                                                  </td>
-                                                );
-                                              }
-                                            })}
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        ))}
                       </div>
                     </div>
                   ) : (
